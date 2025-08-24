@@ -85,6 +85,10 @@ services:
       - ./self-signed:/etc/nginx/certs:ro
     depends_on:
       - keycloak-cinemonkey
+      - cinemonkey-backend
+      - cinemonkey-frontend
+      - minio-cinemonkey
+    restart: unless-stopped
     networks:
       cmnet:
         aliases:
