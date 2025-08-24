@@ -1,0 +1,21 @@
+.table-container{
+    min-height: 20vh; 
+    padding:3rem;
+    background-color: #293230;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+    justify-content: center!important;
+    align-items: center!important;
+    display:flexbox;
+}
+h2{
+    text-align: center;
+    -webkit-text-fill-color: bisque;
+}
+.button-container{
+    margin-top:2rem;
+    display: flexbox;
+    text-align: center!important;
+    justify-content: center!important;
+    align-items: center!important;
+  }

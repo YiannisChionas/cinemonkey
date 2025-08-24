@@ -1,0 +1,25 @@
+# macOS / IDE
+.DS_Store
+.idea/
+*.iml
+
+# Java / Maven
+**/target/
+
+# Node / Angular
+**/node_modules/
+**/dist/
+npm-debug.log*
+yarn-error.log*
+
+# Env
+**/.env
+**/.env.*
+
+# Docker artifacts / backups
+backups/
+*.tar
+*.tar.gz
+
+# Self-signed private keys (κράτα μόνο τα .pem public αν χρειάζεται)
+self-signed/*-key.pem

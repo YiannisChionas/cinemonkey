@@ -1,0 +1,118 @@
+services:
+  postgres-cinemonkey:
+    container_name: postgres-cinemonkey
+    image: postgres
+    environment:
+      POSTGRES_USER: cinemonkey
+      POSTGRES_PASSWORD: MonkeyBusiness
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_DB: cinemonkey
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    networks:
+      - cmnet
+    restart: unless-stopped
+
+  cinemonkey-frontend:
+    container_name: cinemonkey-frontend
+    build:
+      context: ./cinemonkey-frontend        # ο φάκελος που έχει το Dockerfile
+      dockerfile: Dockerfile
+    ports:
+      - "8081:80"
+    networks:
+      - cmnet
+
+  mail-dev-cinemonkey:
+    container_name: mail-dev-cinemonkey
+    image: maildev/maildev
+    expose:
+      - 1080
+      - 1025
+    networks:
+      - cmnet
+
+  keycloak-cinemonkey:
+    image: quay.io/keycloak/keycloak:24.0.2
+    container_name: keycloak-cinemonkey
+    command:
+      - start-dev
+      - --proxy-headers=xforwarded
+      - --hostname=cinemonkey.com
+      - --hostname-strict=false
+      - --hostname-path=/keycloak
+      - --import-realm
+    volumes:
+      - keycloak-test:/opt/keycloak/data
+      - ./keycloak/import:/opt/keycloak/data/import:ro
+    expose:
+      - 8080
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    networks:
+      - cmnet
+
+  cinemonkey-backend:
+    container_name: cinemonkey-backend
+    build:
+      context: .        # ο φάκελος που έχει το Dockerfile
+      dockerfile: ./cinemonkey-backend/Dockerfile               # ή Dockerfile.backend αν έτσι το έχεις ονομάσει
+    expose:
+      - "8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-cinemonkey:5432/cinemonkey
+      SPRING_DATASOURCE_USERNAME: cinemonkey
+      SPRING_DATASOURCE_PASSWORD: MonkeyBusiness
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://cinemonkey.com/keycloak/realms/cine-monkey
+    depends_on:
+      - postgres-cinemonkey
+      - keycloak-cinemonkey
+    networks:
+      - cmnet
+
+  nginx-proxy-cinemonkey:
+    image: nginx:alpine
+    container_name: nginx-proxy-cinemonkey
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./self-signed:/etc/nginx/certs:ro
+    depends_on:
+      - keycloak-cinemonkey
+    networks:
+      cmnet:
+        aliases:
+          - cinemonkey.com
+
+  minio-cinemonkey:
+    image: minio/minio:latest
+    container_name: minio-cinemonkey
+    volumes:
+      - demo_minio_data:/data
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+    command: server /data --console-address ":9001"
+    expose:
+      - "9000"  # S3 API
+      - "9001"  # Web UI
+    networks:
+      - cmnet
+
+networks:
+  cmnet:
+    driver: bridge
+
+volumes:
+  postgres:
+    driver: local
+  keycloak-test:
+    external: true
+  demo_minio_data: # <— ΠΡΟΣΘΗΚΗ
+    external: true

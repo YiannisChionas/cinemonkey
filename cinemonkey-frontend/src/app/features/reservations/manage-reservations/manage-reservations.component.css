@@ -1,0 +1,39 @@
+.table-container{
+    min-height: 20vh; 
+    padding:3rem;
+    background-color: #293230;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+}
+form{
+    background-color: #293230;
+    padding: 2rem;
+    border-radius: 1rem;
+    justify-content: center;
+    align-items: center;
+    display: flexbox;
+}
+label{
+    -webkit-text-fill-color: bisque;
+    margin:0.5rem;
+}
+input{
+    margin:0.5rem;
+}
+.button-container{
+    margin-top:2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+select{
+    margin: 0.5rem;
+}
+small{
+    -webkit-text-fill-color: rgba(255, 228, 196, 0.585);
+    margin:0.5rem;
+}
+.assisst-message{
+    -webkit-text-fill-color: red;
+    margin:0.5rem;
+}

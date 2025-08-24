@@ -1,0 +1,48 @@
+<div class="table-container">
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+
+                <th scope='col'>Poster</th>
+                <th scope="col">Title</th>
+                <th scope="col">Director</th>
+                <th scope='col'>Duration</th>
+                <th scope='col'>Genre</th>
+                <th scope='col'>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let movie of movies">
+                <td>{{movie.poster}}</td>
+                <td>{{movie.title}}</td>
+                <td>{{movie.director}}</td>
+                <td>{{movie.duration}}</td>
+                <td>{{movie.genre}}</td>
+                <td><button type="button" class="btn btn-warning">Edit</button> 
+                    <button type="button"class="btn btn-danger"(click)="deleteMovie(movie.title)">Delete</button></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<form [formGroup]="movieForm" (ngSubmit)="onSubmit()">
+    <h2>Add a movie</h2>
+    <div>
+        <label for="titleInput">Title:</label>
+        <input type="text" class="form-control" id="titleInput" formControlName="titleInput">
+    </div>
+    <div>
+        <label for="posterInput">Poster url:</label>
+        <input type="text" id="posterInput" class="form-control" id="posterInput" formControlName="posterInput">
+    </div>
+    <div>
+        <label for="directorInput">Director:</label>
+        <input type="text" class="form-control" id="directorInput" formControlName="directorInput">
+    </div>
+    <div>
+        <label for="durationInput">Duration:</label>
+        <input type="text" id="posterInput" class="form-control" id="durationInput" formControlName="durationInput">
+    </div>
+    <div class="button-container">
+        <button type="submit" class="btn btn-primary-custom">Add Movie</button>
+    </div>
+</form>

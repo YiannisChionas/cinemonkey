@@ -1,0 +1,48 @@
+<div *ngIf="movie; else loading" class="movie-details-container">
+  <div class="movie-details-left">
+    <h1>{{ movie.title }}</h1>
+    <p><strong>Description: </strong>{{ movie.description }}</p>
+    <p><strong>Director: </strong> {{ movie.director }}</p>
+    <p><strong>Duration: </strong>{{ movie.duration }} minutes</p>
+    <p><strong>Genre: </strong>{{ movie.genre }}</p>
+    <div class="button-container">
+      <button class="btn btn-primary-custom">Αγορά Εισιτηρίων</button>
+      <button class="btn btn-outline-light">Προβολές</button>
+    </div>
+  </div>
+
+  <div class="movie-details-right">
+    <img [src]="movie.poster" alt="{{ movie.title }}" class="poster-image">
+    />
+  </div>
+</div>
+
+<div class="table-container">
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+
+        <th scope='col'>Id</th>
+        <th scope="col">State</th>
+        <th scope="col">Showing Room</th>
+        <th scope='col'>Showing Movie</th>
+        <th scope='col'>Showing Date</th>
+        <th scope='col'>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let showing of showings">
+        <td>{{showing.id}}</td>
+        <td>{{showing.state}}</td>
+        <td>{{showing.showingRoom}}</td>
+        <td>{{showing.showingMovie.title}}</td>
+        <td>{{showing.showingDate}}</td>
+        <td><button type="button" (click)="onClick(showing.id)" class="btn btn-warning">Make Reservation</button>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<ng-template #loading>
+  <p>Loading movie details...</p>
+</ng-template>

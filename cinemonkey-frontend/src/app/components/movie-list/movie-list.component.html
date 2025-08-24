@@ -1,0 +1,25 @@
+<div class="movie-list-container">
+  <div class="form-group">
+    <h1 class="title">Playing Now</h1>
+    <div class="button-container">
+      <mat-icon matSuffix>filter_alt</mat-icon>
+      <input type="text" class="form-control" placeholder="Αναζήτηση ταινίας ...">
+    </div>
+  </div>
+  <div class="row justify-content-center movie-list-backg round w-100">
+    <!-- Movie Cards -->
+    <div class="col-md-4 col-sm-6 col-xs-12 mb-3" *ngFor="let movie of movies">
+      <div class="card text-white mb-3">
+        <img src="{{movie.poster}}" alt="{{movie.title}}" class="card-img-top img-fluid">
+        <div class="card-body text-center">
+
+          <h5 class="card-title">{{movie.title}}</h5>
+          <p class="card-text">{{movie.description}}</p>
+          
+          <a [routerLink]="['/movie', movie.title]" class="btn btn-primary-custom">Δείτε Περισσότερα ...</a>
+        
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

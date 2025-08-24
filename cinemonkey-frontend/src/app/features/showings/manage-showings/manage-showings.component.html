@@ -1,0 +1,50 @@
+<div class="table-container">
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          
+          <th scope='col'>Id</th>
+          <th scope="col">State</th>
+          <th scope="col">Showing Room</th>
+          <th scope='col'>Showing Movie</th>
+          <th scope='col'>Showing Date</th>
+          <th scope='col'>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Loop through the users array to create a row for each user -->
+        <tr *ngFor="let showing of showings">
+          <td>{{showing.id}}</td>
+          <td>{{showing.state}}</td>
+          <td>{{showing.showingRoom}}</td>
+          <td>{{showing.showingMovie.title}}</td>
+          <td>{{showing.showingDate}}</td>
+          <td><button type="button" class="btn btn-warning">Edit</button> <button type="button" class="btn btn-danger"
+              (click)="deleteShowing(showing.id)">Delete</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <form [formGroup]="myForm" (ngSubmit)="onSubmit()">
+    <div>
+      <label for="emailInput">ShowingRoom:</label>
+      <input type="text" class="form-control" id="emailInput" formControlName="email">
+    </div>
+  
+    <div>
+      <label for="passwordInput">Showing Movie Title:</label>
+      <input type="text" id="passwordInput" class="form-control" aria-describedby="passwordHelpBlock" formControlName="password">
+    </div>
+  
+    <div>
+      <label for="firstnameInput">Showing Date:</label>
+      <input type="text" class="form-control" id="firstnameInput" formControlName="firstname">
+      <div class="assisst-message" *ngIf="myForm.get('name')?.invalid && myForm.get('name')?.touched">
+        Please enter a valid name.
+      </div>
+    </div>
+  
+    <div class="button-container">
+      <button type="submit" class="btn btn-primary-custom">Add Showing</button>
+    </div>
+  </form>

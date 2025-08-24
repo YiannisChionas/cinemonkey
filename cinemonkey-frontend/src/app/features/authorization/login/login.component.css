@@ -1,0 +1,28 @@
+  .d-flex {
+    display: flex; /* Flexbox for centering */
+    margin:5rem;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .justify-content-center {
+    justify-content: center; /* Horizontally center */
+  }
+  
+  .align-items-center {
+    align-items: center; /* Vertically center */
+  }
+  
+  .card {
+    -webkit-text-fill-color: bisque;
+    background-color: #171c1b!important;
+    border-radius: 1rem; /* Optional: Rounded corners */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Optional: Subtle shadow */
+    height: max-content;
+    width: max-content;
+    margin: 15rem;
+  }
+
+  input{
+    -webkit-text-fill-color: black;
+  }

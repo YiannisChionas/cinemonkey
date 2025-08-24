@@ -1,0 +1,11 @@
+.booking-container{
+    min-height: 20vh; 
+    border-radius: 1rem;
+    background-color: #293230;
+    padding: 2rem;
+    -webkit-text-fill-color: bisque;
+    justify-content: center!important;
+    align-items: center!important;
+    text-align: center;
+    margin-bottom: 2rem;
+}

@@ -1,0 +1,81 @@
+.movie-details-container {
+  display:flex;            /* Ορίζει Flex Container */
+  background-color: #293230;   /* Π.χ. σκούρο background */
+  color: #fff;              /* Χρώμα κειμένου */
+  padding: 2rem;           /* Κενά γύρω από το κοντέινερ */
+  gap: 5rem;                /* Απόσταση ανάμεσα στις δύο στήλες */
+  box-sizing: border-box;
+  min-height: 80vh;         /* Προαιρετικά, να καλύπτει μεγάλο μέρος της οθόνης */
+  border-radius: 1rem;
+  margin-bottom: 2rem;
+}
+
+.movie-details-left {
+  flex: 1;                  /* Πιάνει όλο το διαθέσιμο χώρο που μένει */
+  display: flex;
+  flex-direction: column;   /* Τα στοιχεία (τίτλος, περιγραφή κ.λπ.) στοιχίζονται κατακόρυφα */
+  justify-content:end;  /* Προαιρετικά, ώστε να είναι κάπως κεντραρισμένα κάθετα */
+  padding-bottom: 5rem;
+}
+
+.movie-details-right {
+  flex: 0 0 auto;           /* Έχει σταθερό πλάτος ή κλειδωμένο περιεχόμενο */
+  display: flex;
+  align-items: center;      /* Η εικόνα κεντραρισμένη κάθετα */
+  justify-content: center;  /* Η εικόνα κεντραρισμένη οριζόντια */
+}
+
+.poster-image {
+  border-radius: 1rem;
+  max-height: 1000px;
+  width: auto;        /* Αυτόματη προσαρμογή του πλάτους ώστε να διατηρείται η αναλογία */
+  object-fit: contain; /* Προαιρετικά, αν έχεις ορίσει σταθερό container */
+  display: block;      
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.button-container{
+  display:flex;
+  padding: 0.5rem;
+  gap: 1rem;
+}
+
+.table-container{
+  min-height: 20vh; 
+  padding:3rem;
+  background-color: #293230;
+  border-radius: 1rem;
+  margin-bottom: 2rem;
+}
+form{
+  background-color: #293230;
+  padding: 2rem;
+  border-radius: 1rem;
+  justify-content: center;
+  align-items: center;
+  display: flexbox;
+}
+label{
+  -webkit-text-fill-color: bisque;
+  margin:0.5rem;
+}
+input{
+  margin:0.5rem;
+}
+.button-container{
+  margin-top:2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+select{
+  margin: 0.5rem;
+}
+small{
+  -webkit-text-fill-color: rgba(255, 228, 196, 0.585);
+  margin:0.5rem;
+}
+.assisst-message{
+  -webkit-text-fill-color: red;
+  margin:0.5rem;
+}

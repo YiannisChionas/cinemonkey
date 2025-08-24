@@ -1,0 +1,62 @@
+.navbar-brand {
+    padding-left: 20px; /* Adjusts space from the left */
+    padding-top: 10px; /* Adjusts space from the top */
+    gap:1rem;
+    display: flex;
+    margin: 0.1rem;
+    align-items: center;
+  }
+
+  h1{
+    margin:0!important;
+    -webkit-text-fill-color: bisque;
+  }
+
+  h1:hover{
+    -webkit-text-fill-color:orange!important;
+  }
+  
+  .navbar {
+    padding: 0.5rem 1rem; /* Additional padding for overall navbar spacing */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Optional: Subtle border */
+    justify-content: space-between ;
+    background-color: #171c1b!important;
+  }
+  
+  .sticky-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+ 
+  .footer{
+    -webkit-text-fill-color: bisque;
+  }
+  
+  .ml-auto{
+    align-items: center!important;
+  }
+
+  footer{
+    -webkit-text-fill-color: bisque!important;
+    display: flexbox!important;
+    text-align: center!important;
+    justify-content: center;
+    padding-bottom:3rem!important;
+  }
+
+  .personal-info-link{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .personal-info-link:hover{
+    -webkit-text-fill-color: orange!important;
+  }
+  
+  h2{
+    -webkit-text-fill-color: bisque;
+    text-align: center;
+  }

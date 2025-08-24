@@ -1,0 +1,39 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3 sticky-navbar">
+
+  <a class="navbar-brand" href="#" style="padding-left: 10px;"><img [src]="apiUrl + '/posters/LOGO.webp'" class="logo-image" />
+    <h1>Cine-Monkey</h1>
+  </a>
+
+  <div class="ml-auto">
+    <a class="btn btn-outline-light" *ngIf="!loggedIn" [routerLink]="['/login']"><mat-icon>person</mat-icon>
+      <h3>Είσοδος</h3>
+    </a>
+    <div class="personal-info-link" *ngIf="isAdmin" routerLink="/manage-movies">
+      <h1>Manage Movies</h1>
+    </div>
+    <div class="personal-info-link" *ngIf="isAdmin" routerLink="/manage-showings">
+      <h1>Manage Showings</h1>
+    </div>
+    <div class="personal-info-link" *ngIf="isAdmin" routerLink="/manage-reservations">
+      <h1>Manage Reservations</h1>
+    </div>
+    <a class="btn btn-outline-light" (click)="personal()"><mat-icon>person</mat-icon>
+      <h1 *ngIf="userEmail">{{userEmail}}</h1>
+    </a>
+    <a class="btn btn-outline-light" (click)="logout()"><mat-icon>logout</mat-icon>Logout</a> <!-- Login button -->
+
+  </div>
+</nav>
+
+<div class="container mt-4">
+  <router-outlet></router-outlet> <!-- This will display routed components -->
+</div>
+
+<footer>
+  <p>© 2025 Cine-Monkey.</p><br />
+  <p>Η εφαρμογή Cine-Monkey προσφέρει μια ολοκληρωμένη λύση για την αποτελεσματική διαχείριση
+    κινηματογραφικών προβολών, κρατήσεων και προγραμμάτων, εξασφαλίζοντας μια άριστη εμπειρία τόσο για τους διαχειριστές
+    όσο και για το κοινό.</p>
+  <p> Με τη χρήση σύγχρονων τεχνολογιών και πρωτοποριακών εργαλείων, ο στόχος μας είναι να
+    απλοποιήσουμε τις διαδικασίες και να ενισχύσουμε την απόδοση των επιχειρήσεων στον χώρο του κινηματογράφου.</p>
+</footer>
