@@ -23,3 +23,7 @@ backups/
 
 # Self-signed private keys (κράτα μόνο τα .pem public αν χρειάζεται)
 self-signed/*-key.pem
+
+# Angular cache
+**/.angular/cache/
+**/coverage/
