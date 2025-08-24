@@ -99,11 +99,32 @@ services:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: admin123
     command: server /data --console-address ":9001"
-    expose:
-      - "9000"  # S3 API
-      - "9001"  # Web UI
-    networks:
-      - cmnet
+    expose: [ "9000","9001" ]
+    networks: [ cmnet ]
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/ready" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  minio-seed:
+    image: minio/mc:latest
+    depends_on:
+      minio-cinemonkey:
+        condition: service_healthy
+    volumes:
+      - ./seed/posters:/seed:ro
+    entrypoint: >
+      sh -c "
+      mc alias set local http://minio-cinemonkey:9000 admin admin123 &&
+      mc mb --ignore-existing local/posters &&
+      mc anonymous set download local/posters || true &&
+      [ -n \"$(ls -A /seed 2>/dev/null)\" ] && mc cp -r /seed/* local/posters/ || echo 'seed dir is empty'
+      "
+    networks: [ cmnet ]
+    restart: "no"
+
 
 networks:
   cmnet:
