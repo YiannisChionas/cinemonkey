@@ -67,7 +67,7 @@ services:
       SPRING_DATASOURCE_USERNAME: cinemonkey
       SPRING_DATASOURCE_PASSWORD: MonkeyBusiness
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://cinemonkey.com/keycloak/realms/cine-monkey
-      LOGO_URL: "https://cinemonkey.com/media/LOGO.jpeg"
+      LOGO_URL: "https://cinemonkey.com/media/LOGO_CLEAN.png"
       app.seed: "true"
     depends_on:
       minio-cinemonkey:

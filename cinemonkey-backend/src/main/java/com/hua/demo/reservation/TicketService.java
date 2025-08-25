@@ -9,22 +9,31 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Objects;
 
 @Service
 public class TicketService {
 
-    // Θα διαβάσει από ENV LOGO_URL. Αν δεν υπάρχει, χρησιμοποιεί το default.
-    @Value("${LOGO_URL:https://cinemonkey.com/media/LOGO.jpeg}")
+    private static final Logger log = LoggerFactory.getLogger(TicketService.class);
+
+    // Παίρνει από ENV LOGO_URL, αλλιώς default στο νέο PNG
+    @Value("${LOGO_URL:https://cinemonkey.com/media/LOGO_CLEAN.png}")
     private String logoUrl;
+
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(3))
+            .build();
 
     public ByteArrayInputStream generateTicket(Reservation reservation) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -33,11 +42,11 @@ public class TicketService {
             PDPage page = new PDPage();
             document.addPage(page);
 
-            // 1) Φόρτωσε logo (με retry + fallback σε classpath)
-            byte[] logoBytes = fetchLogoBytesWithFallback();
+            // 1) Φέρε logo από URL (χωρίς fallback στο classpath)
+            byte[] logoBytes = fetchLogoBytesOrThrow();
             PDImageXObject logo = PDImageXObject.createFromByteArray(document, logoBytes, "logo");
 
-            // 2) Δημιούργησε QR in-memory (PNG)
+            // 2) QR in-memory
             BitMatrix bitMatrix = new MultiFormatWriter()
                     .encode("Reservation ID: " + reservation.getId(), BarcodeFormat.QR_CODE, 100, 100);
             ByteArrayOutputStream qrOut = new ByteArrayOutputStream();
@@ -46,15 +55,12 @@ public class TicketService {
 
             // 3) Ζωγράφισε PDF
             try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
-
                 // Header bar
                 cs.setNonStrokingColor(30, 30, 30);
                 cs.addRect(0, 730, 650, 60);
                 cs.fill();
 
                 // Logo (top-right)
-                cs.setNonStrokingColor(0, 0, 0);
-                cs.fill();
                 cs.drawImage(logo, 500, 735, 50, 50);
 
                 // Header text
@@ -95,7 +101,7 @@ public class TicketService {
                 // QR Code on the right
                 cs.drawImage(qrCodeImage, 400, 580, 100, 100);
 
-                // Footer notice (near bottom)
+                // Footer notice
                 cs.beginText();
                 cs.setFont(PDType1Font.HELVETICA_OBLIQUE, 10);
                 cs.newLineAtOffset(50, 100);
@@ -109,36 +115,24 @@ public class TicketService {
         return new ByteArrayInputStream(out.toByteArray());
     }
 
-    private byte[] fetchLogoBytesWithFallback() throws Exception {
-        // Προσπάθησε από URL με λίγα retries (σε περίπτωση που nginx/minio αργήσουν)
-        byte[] bytes = fetchWithRetry(logoUrl, 5, Duration.ofSeconds(1));
-        if (bytes != null && bytes.length > 0) return bytes;
+    private byte[] fetchLogoBytesOrThrow() throws Exception {
+        // μικρό cache-bust για να μη “μείνει” proxy/browser cache
+        String busted = logoUrl.contains("?")
+                ? logoUrl + "&v=" + System.currentTimeMillis()
+                : logoUrl + "?v=" + System.currentTimeMillis();
 
-        // Fallback: classpath
-        try (InputStream is = getClass().getResourceAsStream("/static/posters/LOGO.jpeg")) {
-            if (is != null) {
-                return is.readAllBytes();
-            }
+        log.info("Loading logo from URL: {}", logoUrl);
+
+        HttpRequest req = HttpRequest.newBuilder(URI.create(busted))
+                .timeout(Duration.ofSeconds(5))
+                .header("Cache-Control", "no-cache")
+                .GET()
+                .build();
+
+        HttpResponse<byte[]> resp = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        if (resp.statusCode() != 200 || resp.body() == null || resp.body().length == 0) {
+            throw new IllegalStateException("Failed to fetch logo from " + logoUrl + " (status " + resp.statusCode() + ")");
         }
-
-        throw new IllegalStateException(
-                "Logo not found at " + logoUrl + " and no classpath fallback at /static/posters/LOGO.jpeg");
-    }
-
-    private byte[] fetchWithRetry(String url, int attempts, Duration backoff) {
-        Objects.requireNonNull(url, "logo url is null");
-        for (int i = 0; i < attempts; i++) {
-            try (InputStream is = URI.create(url).toURL().openStream()) {
-                return is.readAllBytes();
-            } catch (Exception e) {
-                try {
-                    Thread.sleep(backoff.toMillis() * (i + 1));
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    return null;
-                }
-            }
-        }
-        return null;
+        return resp.body();
     }
 }
