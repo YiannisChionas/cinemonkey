@@ -22,7 +22,7 @@ backups/
 *.tar.gz
 
 # Self-signed private keys (κράτα μόνο τα .pem public αν χρειάζεται)
-self-signed/*-key.pem
+self-signed
 
 # Angular cache
 **/.angular/cache/

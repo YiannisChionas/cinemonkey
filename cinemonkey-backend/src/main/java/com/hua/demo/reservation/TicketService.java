@@ -9,16 +9,22 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.net.URI;
+import java.time.Duration;
+import java.util.Objects;
 
 @Service
 public class TicketService {
+
+    // Θα διαβάσει από ENV LOGO_URL. Αν δεν υπάρχει, χρησιμοποιεί το default.
+    @Value("${LOGO_URL:https://cinemonkey.com/media/LOGO.jpeg}")
+    private String logoUrl;
 
     public ByteArrayInputStream generateTicket(Reservation reservation) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -27,17 +33,18 @@ public class TicketService {
             PDPage page = new PDPage();
             document.addPage(page);
 
-            // Load circular logo with transparency
-            InputStream logoInput = getClass().getClassLoader().getResourceAsStream("static/posters/LOGO.jpeg");
-            PDImageXObject logo = PDImageXObject.createFromByteArray(document, logoInput.readAllBytes(), "logo");
+            // 1) Φόρτωσε logo (με retry + fallback σε classpath)
+            byte[] logoBytes = fetchLogoBytesWithFallback();
+            PDImageXObject logo = PDImageXObject.createFromByteArray(document, logoBytes, "logo");
 
-            // Generate QR code
+            // 2) Δημιούργησε QR in-memory (PNG)
             BitMatrix bitMatrix = new MultiFormatWriter()
                     .encode("Reservation ID: " + reservation.getId(), BarcodeFormat.QR_CODE, 100, 100);
-            Path tempQrPath = Files.createTempFile("qr_", ".png");
-            MatrixToImageWriter.writeToPath(bitMatrix, "PNG", tempQrPath);
-            PDImageXObject qrCodeImage = PDImageXObject.createFromFile(tempQrPath.toString(), document);
+            ByteArrayOutputStream qrOut = new ByteArrayOutputStream();
+            MatrixToImageWriter.writeToStream(bitMatrix, "PNG", qrOut);
+            PDImageXObject qrCodeImage = PDImageXObject.createFromByteArray(document, qrOut.toByteArray(), "qrcode");
 
+            // 3) Ζωγράφισε PDF
             try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
 
                 // Header bar
@@ -100,5 +107,38 @@ public class TicketService {
         }
 
         return new ByteArrayInputStream(out.toByteArray());
+    }
+
+    private byte[] fetchLogoBytesWithFallback() throws Exception {
+        // Προσπάθησε από URL με λίγα retries (σε περίπτωση που nginx/minio αργήσουν)
+        byte[] bytes = fetchWithRetry(logoUrl, 5, Duration.ofSeconds(1));
+        if (bytes != null && bytes.length > 0) return bytes;
+
+        // Fallback: classpath
+        try (InputStream is = getClass().getResourceAsStream("/static/posters/LOGO.jpeg")) {
+            if (is != null) {
+                return is.readAllBytes();
+            }
+        }
+
+        throw new IllegalStateException(
+                "Logo not found at " + logoUrl + " and no classpath fallback at /static/posters/LOGO.jpeg");
+    }
+
+    private byte[] fetchWithRetry(String url, int attempts, Duration backoff) {
+        Objects.requireNonNull(url, "logo url is null");
+        for (int i = 0; i < attempts; i++) {
+            try (InputStream is = URI.create(url).toURL().openStream()) {
+                return is.readAllBytes();
+            } catch (Exception e) {
+                try {
+                    Thread.sleep(backoff.toMillis() * (i + 1));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 }

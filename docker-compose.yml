@@ -68,9 +68,10 @@ services:
       SPRING_DATASOURCE_USERNAME: cinemonkey
       SPRING_DATASOURCE_PASSWORD: MonkeyBusiness
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://cinemonkey.com/keycloak/realms/cine-monkey
+      LOGO_URL: "https://cinemonkey.com/media/LOGO.jpeg"
     depends_on:
-      - postgres-cinemonkey
-      - keycloak-cinemonkey
+      minio-cinemonkey:
+          condition: service_healthy
     networks:
       - cmnet
 
@@ -85,7 +86,6 @@ services:
       - ./self-signed:/etc/nginx/certs:ro
     depends_on:
       - keycloak-cinemonkey
-      - cinemonkey-backend
       - cinemonkey-frontend
       - minio-cinemonkey
     restart: unless-stopped
