@@ -10,9 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Component
-@Profile("dev")
+@ConditionalOnProperty(name = "app.seed", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 public class DevDataLoader implements CommandLineRunner{
     private final MovieServiceImpl movieService;

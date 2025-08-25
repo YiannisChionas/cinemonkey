@@ -1,26 +1,37 @@
-# Base image με JDK 17
-FROM eclipse-temurin:17-jdk-jammy
+# ---------- build stage ----------
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /build
 
-# Δημιουργία φακέλου για την εφαρμογή
+# Προ-κατεβάζουμε deps για καλύτερο caching
+COPY cinemonkey-backend/pom.xml .
+RUN mvn -B -q -DskipTests dependency:go-offline
+
+# Κώδικας
+COPY cinemonkey-backend/ ./
+
+# Αν θες να τρέχουν tests με H2, βγάλε το -DskipTests (ή δες το RUN_TESTS πιο κάτω)
+ARG RUN_TESTS=false
+RUN if [ "$RUN_TESTS" = "true" ]; then \
+      mvn -B -P test verify; \
+    else \
+      mvn -B -DskipTests package; \
+    fi
+
+# ---------- runtime stage ----------
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
-# Αντιγραφή του JAR αρχείου στο image
-COPY cinemonkey-backend/target/cinemonkey-backend-0.0.1-SNAPSHOT.jar cineproject.jar
+# JAR από το build stage
+COPY --from=build /build/target/cinemonkey-backend-0.0.1-SNAPSHOT.jar app.jar
 
-# Αντιγραφή self-signed certificate (π.χ. από ./self-signed/)
+# (dev μόνο) εισαγωγή self-signed cert για να εμπιστεύεται https://cinemonkey.com
 COPY self-signed/cinemonkey.com.pem /usr/local/share/ca-certificates/cinemonkey.crt
-
-# Εισαγωγή του cert στο Java truststore
 RUN keytool -importcert \
-    -noprompt \
-    -trustcacerts \
+    -noprompt -trustcacerts \
     -alias cinemonkey \
     -file /usr/local/share/ca-certificates/cinemonkey.crt \
-    -keystore $JAVA_HOME/lib/security/cacerts \
+    -keystore /opt/java/openjdk/lib/security/cacerts \
     -storepass changeit
 
-# Άνοιγμα port της εφαρμογής
 EXPOSE 8080
-
-# Εκκίνηση της εφαρμογής
-ENTRYPOINT ["java", "-jar", "cineproject.jar"]
+ENTRYPOINT ["java","-jar","/app/app.jar"]

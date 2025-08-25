@@ -1,29 +1,44 @@
-# macOS / IDE
+# macOS
 .DS_Store
+.AppleDouble
+*.swp
+
+# IDEs
 .idea/
+.vscode/
 *.iml
 
 # Java / Maven
 **/target/
+*.log
 
 # Node / Angular
 **/node_modules/
 **/dist/
+**/coverage/
+**/.angular/cache/
 npm-debug.log*
 yarn-error.log*
 
-# Env
+# Env files (κρατάμε μόνο παραδείγματα)
 **/.env
 **/.env.*
+!**/.env.example
 
 # Docker artifacts / backups
 backups/
 *.tar
 *.tar.gz
 
-# Self-signed private keys (κράτα μόνο τα .pem public αν χρειάζεται)
-self-signed
+# Self-signed: αγνόησε τα πάντα μέσα στο self-signed/
+self-signed/*
+# …αλλά κράτα ΜΟΝΟ αυτά τα “αθώα” αρχεία
+!self-signed/openssl.cnf
+!self-signed/generate-dev-cert.sh
+!self-signed/.gitkeep
 
-# Angular cache
-**/.angular/cache/
-**/coverage/
+# Επιπλέον ασφάλεια για κλειδιά/πιστοποιητικά παντού
+*.key
+*.pem
+*.crt
+*.csr

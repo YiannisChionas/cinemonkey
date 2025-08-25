@@ -63,12 +63,12 @@ services:
     expose:
       - "8080"
     environment:
-      SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-cinemonkey:5432/cinemonkey
       SPRING_DATASOURCE_USERNAME: cinemonkey
       SPRING_DATASOURCE_PASSWORD: MonkeyBusiness
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://cinemonkey.com/keycloak/realms/cine-monkey
       LOGO_URL: "https://cinemonkey.com/media/LOGO.jpeg"
+      app.seed: "true"
     depends_on:
       minio-cinemonkey:
           condition: service_healthy

@@ -23,7 +23,7 @@ spring:
         jwt:
           issuer-uri: https://cinemonkey.com/keycloak/realms/cine-monkey #http://localhost:9090/realms/cine-monkey
   mail:
-    host: mail-dev-cm
+    host: mail-dev-cinemonkey
     port: 1025
     username: ""
     password: ""
