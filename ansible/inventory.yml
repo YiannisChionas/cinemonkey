@@ -1,0 +1,6 @@
+all:
+  children:
+    cmhosts:
+      hosts:
+        cinemonkey:
+          ansible_user: user

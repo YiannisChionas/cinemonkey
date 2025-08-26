@@ -1,0 +1,17 @@
+# Repo
+repo_url: "git@github.com:YiannisChionas/cinemonkey.git"
+repo_branch: "master"
+
+# GHCR
+ghcr_username: "yiannischionas"
+
+# Image tags (default – μπορείς να τα αλλάζεις με -e)
+owner: "yiannischionas"
+cm_tag: "v0.1.4-141074e"
+
+# ansible/group_vars/all.yml
+project_dir: "/home/user/cinemonkey"
+
+# προαιρετικά, για ευκολία σε tasks
+env_file: "{{ project_dir }}/.env"
+compose_file: "{{ project_dir }}/docker-compose.yml"

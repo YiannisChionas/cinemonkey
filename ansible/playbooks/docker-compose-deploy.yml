@@ -1,0 +1,265 @@
+- hosts: cinemonkey
+  become: true
+  gather_facts: true
+
+  vars:
+    project_dir: "/opt/cinemonkey"
+    repo_url: "git@github.com:YiannisChionas/cinemonkey.git"
+    ssh_key_path: "/home/user/.ssh/id_rsa"
+    ghcr_token: "{{ lookup('env','GHCR_TOKEN') | default('', true) }}"
+    docker_arch: >-
+      {{ 'amd64' if ansible_architecture in ['x86_64'] else
+         ('arm64' if ansible_architecture in ['aarch64'] else ansible_architecture) }}
+
+  vars_files:
+    - group_vars/all.yml
+    - group_vars/vault.yml
+
+  tasks:
+    # --- Prereqs & Docker install ---
+    - name: Ensure base deps (+git-lfs)
+      apt:
+        name:
+          - git
+          - git-lfs            # ← ΠΡΟΣΘΗΚΗ
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - openssl
+        state: present
+        update_cache: yes
+
+    - name: git lfs install (system)
+      command: git lfs install --system
+      changed_when: false
+
+    - name: Ensure keyrings dir
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add Docker GPG key
+      shell: |
+        set -e
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        chmod a+r /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg
+
+    - name: Add Docker apt repo ({{ ansible_lsb.codename }}, {{ docker_arch }})
+      copy:
+        dest: /etc/apt/sources.list.d/docker.list
+        mode: "0644"
+        content: |
+          deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable
+
+    - name: Install Docker Engine + Compose v2
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure docker service running & enabled
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Wait for Docker socket
+      wait_for:
+        path: /var/run/docker.sock
+        state: present
+        timeout: 60
+
+    - name: Ensure {{ ansible_user }} is in docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    # --- SSH hygiene για git μέσω SSH ---
+    - name: Ensure ~/.ssh exists with proper perms
+      become: false
+      file:
+        path: "/home/{{ ansible_user }}/.ssh"
+        state: directory
+        mode: "0700"
+
+    - name: Check private key presence
+      become: false
+      stat:
+        path: "{{ ssh_key_path }}"
+      register: ssh_key
+
+    - name: Enforce 0600 on private key (if present)
+      become: false
+      file:
+        path: "{{ ssh_key_path }}"
+        mode: "0600"
+      when: ssh_key.stat.exists
+
+    - name: Add github.com to known_hosts (no prompt)
+      become: false
+      known_hosts:
+        name: github.com
+        key: "{{ lookup('pipe', 'ssh-keyscan -t rsa,ecdsa,ed25519 github.com 2>/dev/null') }}"
+        path: "/home/{{ ansible_user }}/.ssh/known_hosts"
+        state: present
+
+    # --- Project checkout ---
+    - name: Ensure project dir (parent)
+      file:
+        path: "{{ project_dir | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check if {{ project_dir }} is a git repo
+      stat:
+        path: "{{ project_dir }}/.git"
+      register: git_dir
+
+    - name: Remove non-git dir to allow fresh clone
+      file:
+        path: "{{ project_dir }}"
+        state: absent
+      when: not git_dir.stat.exists
+
+    - name: Recreate project dir (clean)
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ ansible_user }}"
+      when: not git_dir.stat.exists
+
+    - name: Clone repo (first time, with LFS)
+      become: false
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ project_dir }}"
+        version: "master"
+        update: yes
+        single_branch: yes
+        depth: 1
+        accept_hostkey: yes
+        key_file: "{{ ssh_key_path }}"
+        ssh_opts: "-o StrictHostKeyChecking=accept-new"
+      environment:
+        GIT_TERMINAL_PROMPT: "0"
+      when: not git_dir.stat.exists
+
+    - name: Remove stale git lock if any
+      file:
+        path: "{{ project_dir }}/.git/index.lock"
+        state: absent
+      when: git_dir.stat.exists
+
+    - name: Update repo (pull latest, with LFS)
+      become: false
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ project_dir }}"
+        version: "master"
+        update: yes
+        single_branch: yes
+        depth: 1
+        accept_hostkey: yes
+        key_file: "{{ ssh_key_path }}"
+        ssh_opts: "-o StrictHostKeyChecking=accept-new"
+        force: yes
+      environment:
+        GIT_TERMINAL_PROMPT: "0"
+      when: git_dir.stat.exists
+
+    # (belt-and-suspenders) σιγουριά ότι τα LFS binaries κατέβηκαν
+    - name: Git LFS pull (bring real binaries, not pointers)
+      become: false
+      command: git lfs pull
+      args:
+        chdir: "{{ project_dir }}"
+      register: lfs_pull
+      changed_when: lfs_pull.rc == 0
+
+    - name: Reseed posters to MinIO (idempotent)
+      command: docker compose run --rm minio-seed
+      args:
+        chdir: "{{ project_dir }}"
+      register: reseed
+      changed_when: reseed.rc == 0
+
+    # --- .env ---
+    - name: Render .env for docker compose
+      template:
+        src: templates/env.j2
+        dest: "{{ project_dir }}/.env"
+        mode: "0640"
+
+    # --- GHCR login (CLI) ---
+    - name: Docker login to GHCR (CLI, only if token provided)
+      shell: |
+        set -euo pipefail
+        echo "{{ ghcr_token }}" | docker login ghcr.io -u "{{ cm_owner }}" --password-stdin
+      args:
+        executable: /bin/bash
+      when: (ghcr_token | default('', true)) | length > 0
+      no_log: true
+
+    # --- External volumes ---
+    - name: Ensure external volume keycloak-test exists
+      shell: docker volume inspect keycloak-test >/dev/null 2>&1 || docker volume create keycloak-test
+      changed_when: false
+
+    - name: Ensure external volume demo_minio_data exists
+      shell: docker volume inspect demo_minio_data >/dev/null 2>&1 || docker volume create demo_minio_data
+      changed_when: false
+
+    # --- Dev certs ---
+    - name: Check dev cert
+      stat:
+        path: "{{ project_dir }}/self-signed/cinemonkey.com.pem"
+      register: cert_stat
+
+    - name: Generate dev certs if missing
+      command: bash self-signed/generate-dev-cert.sh
+      args:
+        chdir: "{{ project_dir }}"
+      when: not cert_stat.stat.exists
+      check_mode: false
+
+    # --- Compose up ---
+    - name: Pull + Up containers (Compose v2)
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        pull: always
+        remove_orphans: true
+        state: present
+
+    # --- Περιμένω MinIO να γίνει healthy & reseed με τα πραγματικά binaries ---
+    - name: Wait until MinIO is healthy (module-based)
+      community.docker.docker_container_info:
+        name: minio-cinemonkey
+      register: minio_info
+      retries: 30
+      delay: 2
+      until:
+        - minio_info.exists | default(false)
+        - >
+          (minio_info.container.State.Health is defined and
+           minio_info.container.State.Health.Status == 'healthy') or
+          (minio_info.container.State.Health is not defined and
+           minio_info.container.State.Status == 'running')
+    
+
+    - name: Reseed posters into MinIO (one-off run)
+      shell: docker compose run --rm minio-seed
+      args:
+        chdir: "{{ project_dir }}"
+      register: reseed_out
+      changed_when: "'Transferred' in reseed_out.stdout or 'Transferred' in reseed_out.stderr"
