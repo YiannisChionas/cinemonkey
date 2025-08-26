@@ -17,7 +17,7 @@ services:
 
   cinemonkey-frontend:
     pull_policy: always
-    platform: linux/arm64
+    platform: linux/amd64
     image: ghcr.io/${OWNER}/cinemonkey-frontend:${CM_TAG}
     container_name: cinemonkey-frontend
     ports:
@@ -57,7 +57,7 @@ services:
 
   cinemonkey-backend:
     pull_policy: always
-    platform: linux/arm64
+    platform: linux/amd64
     image: ghcr.io/${OWNER}/cinemonkey-backend:${CM_TAG}
     container_name: cinemonkey-backend
     expose:
