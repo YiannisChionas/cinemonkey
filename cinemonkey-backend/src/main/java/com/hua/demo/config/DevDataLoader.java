@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Component
-@ConditionalOnProperty(name = "app.seed", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(prefix = "app", name = "seed", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 public class DevDataLoader implements CommandLineRunner{
     private final MovieServiceImpl movieService;
