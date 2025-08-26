@@ -1,7 +1,7 @@
 services:
   postgres-cinemonkey:
     container_name: postgres-cinemonkey
-    image: postgres
+    image: postgres:15
     environment:
       POSTGRES_USER: cinemonkey
       POSTGRES_PASSWORD: MonkeyBusiness
