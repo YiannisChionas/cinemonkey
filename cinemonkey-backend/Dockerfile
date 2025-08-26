@@ -15,8 +15,12 @@ COPY --from=build /build/target/cinemonkey-backend-0.0.1-SNAPSHOT.jar app.jar
 
 # runtime entrypoint: αν βρει PEMs στο /certs, τα εισάγει στο cacerts
 COPY cinemonkey-backend/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+
+# Αφαίρεση CRLF και δικαιώματα εκτέλεσης
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
 ENV JAVA_OPTS=""
 EXPOSE 8080
-ENTRYPOINT ["/docker-entrypoint.sh"]
+
+# Χρησιμοποιούμε ρητά bash ως interpreter (αποφεύγουμε kernel shebang issues)
+ENTRYPOINT ["/bin/bash", "/docker-entrypoint.sh"]
