@@ -58,6 +58,7 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/cinemonkey-backend:${{ steps.meta.outputs.tag1 }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/cinemonkey-backend:${{ steps.meta.outputs.tag2 }}
+          platforms: linux/amd64,linux/arm64
           build-args: |
             RUN_TESTS=false
 
@@ -70,3 +71,4 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/cinemonkey-frontend:${{ steps.meta.outputs.tag1 }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/cinemonkey-frontend:${{ steps.meta.outputs.tag2 }}
+          platforms: linux/amd64,linux/arm64
