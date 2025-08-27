@@ -1,0 +1,7 @@
+# roles/nginx_proxy/handlers/main.yml
+---
+- name: Reload nginx
+  become: true
+  shell: |
+    nginx -t
+    systemctl reload nginx

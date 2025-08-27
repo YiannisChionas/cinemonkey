@@ -1,0 +1,8 @@
+---
+- name: Deploy frontend + nginx proxy
+  hosts: cinemonkey
+  become: true
+  roles:
+    - docker_engine         # ήδη το έχεις – για σιγουριά
+    - frontend
+    - nginx_proxy

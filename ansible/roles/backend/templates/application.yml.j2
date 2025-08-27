@@ -1,0 +1,56 @@
+server:
+  port: {{ backend_port }}
+
+LOGO_URL: "http://127.0.0.1:9000/posters/LOGO_CLEAN.png"
+
+upload:
+  postersDir: "{{ backend_upload_dir | default('/var/lib/cinemonkey/posters') }}"
+
+
+spring:
+  datasource:
+    url: jdbc:postgresql://{{ db_host }}:{{ db_port }}/{{ db_name }}
+    username: {{ db_user }}
+    password: {{ db_password }}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  mail:
+      host: ${MAIL_HOST:127.0.0.1}
+      port: ${MAIL_PORT:1025}
+      properties:
+        mail.smtp.auth: false
+        mail.smtp.starttls.enable: false
+
+cinemonkey:
+  ticket:
+      logo-url: "{{ cm_ticket_logo_url | default('http://127.0.0.1:9000/posters/LOGO_CLEAN.png') }}"
+      logoUrl:  "{{ cm_ticket_logo_url | default('http://127.0.0.1:9000/posters/LOGO_CLEAN.png') }}"
+
+minio:
+  endpoint: {{ minio_endpoint }}
+  accessKey: {{ minio_access_key }}
+  secretKey: {{ minio_secret_key }}
+  bucket: {{ minio_bucket_posters }}
+
+keycloak:
+  auth-server-url: {{ keycloak_auth_server_url }}
+  realm: {{ keycloak_realm }}
+  resource: {{ keycloak_client }}
+
+logging:
+  file:
+    name: /var/log/{{ backend_service_name }}/app.log
+  level:
+    root: INFO
+    org.springframework.mail: DEBUG
+    javax.mail: DEBUG
+
+# Seeder toggle
+app:
+  seed: "{{ (cm_app_seed | default(true)) | ternary('true','false') }}"
+

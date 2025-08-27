@@ -144,7 +144,7 @@
       git:
         repo: "{{ repo_url }}"
         dest: "{{ project_dir }}"
-        version: "master"
+        version: "{{ repo_branch }}"
         update: yes
         single_branch: yes
         depth: 1
@@ -166,7 +166,7 @@
       git:
         repo: "{{ repo_url }}"
         dest: "{{ project_dir }}"
-        version: "master"
+        version: "{{ repo_branch }}"
         update: yes
         single_branch: yes
         depth: 1

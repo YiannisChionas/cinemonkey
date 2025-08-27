@@ -1,0 +1,10 @@
+- hosts: cinemonkey
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - vars/minio.yml   # βάλε εδώ user/pass/paths κλπ.
+
+  roles:
+    - minio
+

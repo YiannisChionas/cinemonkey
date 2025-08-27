@@ -1,0 +1,168 @@
+---
+- name: Map architecture for MinIO download
+  set_fact:
+    _minio_arch: >-
+      {{ 'amd64' if ansible_architecture in ['x86_64'] else
+         ('arm64' if ansible_architecture in ['aarch64','arm64'] else ansible_architecture) }}
+
+- name: Ensure base deps
+  apt:
+    name: [ca-certificates, curl]
+    state: present
+    update_cache: yes
+
+- name: Create minio group
+  group:
+    name: "{{ minio_group }}"
+    system: true
+
+- name: Create minio user
+  user:
+    name: "{{ minio_user }}"
+    group: "{{ minio_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ minio_data_dir }}"
+    create_home: false
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ minio_user }}"
+    group: "{{ minio_group }}"
+    mode: "0755"
+  loop:
+    - "{{ minio_data_dir }}"
+    - "{{ minio_data_mount }}"
+    - "{{ minio_env_file | dirname }}"
+    - "/etc/systemd/system"
+
+- name: Download minio server binary
+  get_url:
+    url: "https://dl.min.io/server/minio/release/linux-{{ _minio_arch }}/minio"
+    dest: "{{ minio_bin_dir }}/minio"
+    mode: "0755"
+
+- name: Download mc client binary
+  get_url:
+    url: "https://dl.min.io/client/mc/release/linux-{{ _minio_arch }}/mc"
+    dest: "{{ minio_bin_dir }}/mc"
+    mode: "0755"
+
+- name: Render env file
+  template:
+    src: "minio.env.j2"
+    dest: "{{ minio_env_file }}"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart MinIO
+
+- name: Render systemd unit
+  template:
+    src: "minio.service.j2"
+    dest: "/etc/systemd/system/minio.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Daemon reload + Restart MinIO
+
+- name: Enable and start service
+  systemd:
+    name: minio
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Wait for API port
+  wait_for:
+    host: "127.0.0.1"
+    port: "{{ minio_api_address.split(':')[-1] | int }}"
+    delay: 1
+    timeout: 60
+
+# ---- mc setup & buckets ----
+
+- name: Configure mc alias (local)
+  shell: |
+    set -euo pipefail
+    {{ minio_bin_dir }}/mc alias set local http://127.0.0.1:{{ minio_api_address.split(':')[-1] }} "{{ minio_root_user }}" "{{ minio_root_password }}"
+  args:
+    executable: /bin/bash
+  register: _mc_alias
+  changed_when: "'Added' in _mc_alias.stdout or 'Changed' in _mc_alias.stdout"
+  failed_when: _mc_alias.rc not in [0]
+  retries: 10
+  delay: 3
+  until: _mc_alias.rc == 0
+
+- name: Ensure buckets exist
+  shell: |
+    set -euo pipefail
+    {{ minio_bin_dir }}/mc mb -p local/{{ item.name }} || true
+  args:
+    executable: /bin/bash
+  loop: "{{ minio_buckets }}"
+  changed_when: false
+
+- name: Set bucket policies
+  shell: |
+    set -euo pipefail
+    {{ minio_bin_dir }}/mc anonymous set {{ item.policy }} local/{{ item.name }}
+  args:
+    executable: /bin/bash
+  loop: "{{ minio_buckets }}"
+  changed_when: false
+
+# ---- Optional seeding ----
+- name: Create temp seed dir on remote
+  file:
+    path: "/tmp/minio-seed"
+    state: directory
+    mode: "0755"
+  when: minio_seed_enable
+
+- name: Copy seed files (if any) to remote
+  copy:
+    src: "{{ minio_seed_local_dir }}/"
+    dest: "/tmp/minio-seed/"
+    mode: "0644"
+  when: minio_seed_enable
+  ignore_errors: yes
+
+- name: Mirror seed -> local/posters
+  shell: |
+    set -euo pipefail
+    if [ -d /tmp/minio-seed ] && [ "$(ls -A /tmp/minio-seed || true)" != "" ]; then
+      {{ minio_bin_dir }}/mc mirror --overwrite /tmp/minio-seed local/posters
+    fi
+  args:
+    executable: /bin/bash
+  when: minio_seed_enable
+  changed_when: false
+
+- name: Ensure mc alias "local" points to local MinIO
+  shell: |
+    set -euo pipefail
+    . /etc/minio/minio.env
+    mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Ensure posters bucket exists
+  shell: |
+    set -euo pipefail
+    mc mb -p local/posters || true
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Make posters bucket public (download)
+  shell: |
+    set -euo pipefail
+    mc anonymous set download local/posters
+  args:
+    executable: /bin/bash
+  changed_when: false

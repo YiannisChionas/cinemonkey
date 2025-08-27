@@ -1,0 +1,70 @@
+# playbooks/cinemonkey.yml
+- name: Bootstrap host & ensure local hostname mapping
+  hosts: cinemonkey
+  become: true
+  gather_facts: true
+  # group_vars/all.yml φορτώνεται αυτόματα· εδώ δεν χρειάζεται vars_files
+
+  pre_tasks:
+    - name: Ensure /etc/hosts maps domain to localhost (replace any existing)
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^\s*\d+\.\d+\.\d+\.\d+\s+{{ domain_name }}\b'
+        line: "127.0.0.1 {{ domain_name }}"
+        state: present
+        create: yes
+
+    - name: Verify local resolution for {{ domain_name }}
+      ansible.builtin.command: getent hosts {{ domain_name }}
+      register: cm_hosts
+      changed_when: false
+
+    - name: Assert it resolves to 127.0.0.1
+      ansible.builtin.assert:
+        that:
+          - cm_hosts.stdout.split()[0] == '127.0.0.1'
+        fail_msg: "Το {{ domain_name }} δεν λύνει σε 127.0.0.1 (τρέχουσα: {{ cm_hosts.stdout }})"
+
+# --- DB + MinIO ---
+- name: Provision DB + MinIO
+  hosts: cinemonkey
+  become: true
+  vars_files:
+    - vars/postgres.yml
+    - vars/minio.yml
+  roles:
+    - role: postgres
+    - role: minio
+
+# --- Frontend + Nginx ---
+- name: Deploy frontend & nginx proxy
+  hosts: cinemonkey
+  become: true
+  # οι σχετικές ρυθμίσεις είναι ήδη στο group_vars/all.yml
+  roles:
+    - role: frontend
+    - role: nginx_proxy
+
+# --- Keycloak ---
+- name: Provision Keycloak
+  hosts: cinemonkey
+  become: true
+  vars_files:
+    - vars/keycloak.yml
+  roles:
+    - role: keycloak
+
+- name: Provision MailDev
+  hosts: cinemonkey
+  become: true
+  roles:
+    - role: maildev
+
+# --- Backend ---
+- name: Deploy backend
+  hosts: cinemonkey
+  become: true
+  vars_files:
+    - vars/backend.yml
+  roles:
+    - role: backend

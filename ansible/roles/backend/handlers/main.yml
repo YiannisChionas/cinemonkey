@@ -1,0 +1,17 @@
+# roles/backend/handlers/main.yml
+---
+- name: Daemon reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+
+- name: Daemon reload + Restart backend
+  systemd:
+    name: cinemonkey-backend
+    daemon_reload: true
+    state: restarted
+
+- name: Restart backend
+  systemd:
+    name: cinemonkey-backend
+    state: restarted

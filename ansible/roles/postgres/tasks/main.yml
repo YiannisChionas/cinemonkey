@@ -1,0 +1,136 @@
+- name: Ensure ACL tools are present (needed for become_user tmp perms)
+  apt:
+    name: acl
+    state: present
+    update_cache: yes
+
+- name: Ensure PGDG keyring dir
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add PostgreSQL apt key (PGDG)
+  ansible.builtin.shell: |
+    set -e
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+      | gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg
+    chmod a+r /etc/apt/keyrings/postgresql.gpg
+  args:
+    creates: /etc/apt/keyrings/postgresql.gpg
+
+- name: Add PostgreSQL apt repo (PGDG)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt {{ ansible_lsb.codename }}-pgdg main"
+    filename: "pgdg"
+    state: present
+
+- name: Install PostgreSQL {{ postgres_version }} and psycopg2
+  ansible.builtin.apt:
+    name:
+      - "postgresql-{{ postgres_version }}"
+      - postgresql-client
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+
+- name: Ensure Postgres service started & enabled
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Ensure PostgreSQL listening on localhost
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
+    regexp: '^#?\s*listen_addresses\s*='
+    line: "listen_addresses = '{{ postgres_listen_addresses }}'"
+  notify: Restart PostgreSQL
+
+- name: Ensure local md5 rules in pg_hba (IPv4 + IPv6)
+  ansible.builtin.blockinfile:
+    path: "/etc/postgresql/{{ postgres_version }}/main/pg_hba.conf"
+    marker: "# {mark} cinemonkey managed"
+    block: |
+      host    all             all             127.0.0.1/32            md5
+      host    all             all             ::1/128                 md5
+  notify: Restart PostgreSQL
+
+- name: Wait for 5432 to be ready
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 5432
+    delay: 1
+    timeout: 60
+
+- name: Ensure database
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+
+- name: Ensure DB user with password
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    db: "{{ db_name }}"
+    priv: "ALL"
+
+
+# Κάνε owner τη βάση
+- name: Ensure DB owner is the app user
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+  tags: [pg_privs]
+
+# Δώσε CREATE,USAGE στο public schema
+- name: Grant CREATE, USAGE on public schema to app user
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    login_db: "{{ db_name }}"
+    type: schema
+    objs: public
+    roles: "{{ db_user }}"
+    privs: "CREATE,USAGE"
+    state: present
+  tags: [pg_privs]
+
+# ALL στο database (CONNECT/TEMP κ.λπ.)
+- name: Grant ALL on database to app user
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    login_db: "{{ db_name }}"
+    type: database
+    objs: "{{ db_name }}"
+    roles: "{{ db_user }}"
+    privs: "ALL"
+    state: present
+  tags: [pg_privs]
+
+# CRUD στα υπάρχοντα tables του public
+- name: Grant CRUD on all tables in public
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    login_db: "{{ db_name }}"
+    type: table
+    schema: public
+    objs: ALL_IN_SCHEMA
+    roles: "{{ db_user }}"
+    privs: SELECT,INSERT,UPDATE,DELETE
+    state: present
+  tags: [pg_privs]
+
+# Usage στις sequences
+- name: Grant usage on all sequences in public
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    login_db: "{{ db_name }}"
+    type: sequence
+    schema: public
+    objs: ALL_IN_SCHEMA
+    roles: "{{ db_user }}"
+    privs: USAGE,SELECT,UPDATE
+    state: present
+  tags: [pg_privs]

@@ -1,0 +1,200 @@
+---
+- name: Install nginx & openssl
+  become: true
+  ansible.builtin.apt:
+    name: [nginx, openssl]
+    state: present
+    update_cache: yes
+
+- name: Ensure /etc/hosts entry for domain
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^\s*127\.0\.0\.1\s+{{ domain_name }}\s*$'
+    line: "127.0.0.1 {{ domain_name }}"
+    state: present
+    create: yes
+    insertafter: EOF
+
+- name: Ensure needed dirs
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/nginx/certs
+    - "{{ frontend_root }}"
+
+- name: OpenSSL cfg for SAN
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/nginx/certs/openssl.cnf
+    mode: "0644"
+    content: |
+      [req]
+      default_bits       = 2048
+      prompt             = no
+      default_md         = sha256
+      req_extensions     = req_ext
+      distinguished_name = dn
+      [dn]
+      C  = GR
+      ST = Attica
+      L  = Athens
+      O  = CineMonkey
+      CN = {{ domain_name }}
+      [req_ext]
+      subjectAltName = @alt_names
+      [alt_names]
+      DNS.1 = {{ domain_name }}
+
+# --- TLS materials: try to install provided PEM+KEY from role files; fallback to self-signed ---
+
+- name: Ensure certs directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/certs
+    state: directory
+    mode: "0755"
+
+- name: Install provided TLS bundle (PEM)
+  become: true
+  ansible.builtin.copy:
+    src: ssl/cinemonkey.com.pem
+    dest: /etc/nginx/certs/cinemonkey.com.pem
+    owner: root
+    group: root
+    mode: "0644"
+  register: cm_cert_copy
+  ignore_errors: true
+
+- name: Install provided private key (PEM)
+  become: true
+  ansible.builtin.copy:
+    src: ssl/cinemonkey.com-key.pem
+    dest: /etc/nginx/certs/cinemonkey.com-key.pem
+    owner: root
+    group: root
+    mode: "0600"
+  register: cm_key_copy
+  ignore_errors: true
+
+- name: Generate self-signed ONLY if provided certs not found
+  become: true
+  when: cm_cert_copy is failed or cm_key_copy is failed
+  ansible.builtin.shell: |
+    set -e
+    openssl req -x509 -newkey rsa:2048 -nodes \
+      -keyout /etc/nginx/certs/cinemonkey.com-key.pem \
+      -out   /etc/nginx/certs/cinemonkey.com.pem \
+      -days 365 \
+      -subj "/C=GR/ST=Attica/L=Athens/O=CineMonkey/CN={{ domain_name }}"
+  args:
+    creates: /etc/nginx/certs/cinemonkey.com.pem
+
+# TLS υλικά για Keycloak ως root (ο keycloak user δεν υπάρχει ακόμη)
+- name: Ensure /etc/keycloak/tls (root-owned for now)
+  become: true
+  ansible.builtin.file:
+    path: /etc/keycloak/tls
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# ⬇⬇⬇ ΔΙΟΡΘΩΜΕΝΟ: παίρνουμε από .pem/.key και τα βάζουμε ως .crt/.key στον Keycloak
+- name: Copy cert to Keycloak TLS dir (root-owned)
+  become: true
+  ansible.builtin.copy:
+    src: /etc/nginx/certs/cinemonkey.com.pem
+    dest: /etc/keycloak/tls/cinemonkey.crt
+    owner: root
+    group: root
+    mode: "0644"
+    remote_src: true
+
+- name: Copy key to Keycloak TLS dir (root-owned)
+  become: true
+  ansible.builtin.copy:
+    src: /etc/nginx/certs/cinemonkey.com-key.pem
+    dest: /etc/keycloak/tls/cinemonkey.key
+    owner: root
+    group: root
+    mode: "0600"
+    remote_src: true
+
+- name: Stop possible conflicting services (apache, caddy)
+  become: true
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  ignore_errors: true
+  loop: [apache2, caddy]
+
+- name: Disable Ubuntu default site (sites-enabled)
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Remove sites-available default file (optional)
+  become: true
+  ansible.builtin.file:
+    path: /etc/nginx/sites-available/default
+    state: absent
+  notify: Reload nginx
+
+- name: Deploy nginx.conf
+  become: true
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    mode: "0644"
+  notify: Reload nginx
+
+- name: nginx -t
+  become: true
+  ansible.builtin.command: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Enable & start nginx
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Wait for 443 to listen
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 443
+    timeout: 30
+
+# Deterministic check στο /__nginx_stamp (βλέπε nginx.conf.j2)
+- name: Check our nginx stamp (HTTPS)
+  ansible.builtin.uri:
+    url: "https://{{ domain_name }}/__nginx_stamp"
+    method: GET
+    follow_redirects: all
+    validate_certs: no
+    return_content: yes
+  register: cm_root
+
+- name: Extract X-CM header if present
+  ansible.builtin.set_fact:
+    cm_header: >-
+      {{ cm_root.x_cm
+         | default(cm_root['X-CM']
+         | default(cm_root['x-cm']
+         | default(''))) }}
+
+- name: Assert stamp OK
+  ansible.builtin.assert:
+    that:
+      - cm_root.status == 200
+      - cm_root.content is search('ok')
+    fail_msg: "Our nginx didn't answer as expected. Full: {{ cm_root }}"

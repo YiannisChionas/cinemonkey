@@ -1,6 +1,6 @@
 # Repo
 repo_url: "git@github.com:YiannisChionas/cinemonkey.git"
-repo_branch: "master"
+repo_branch: "infra/non-docker-ansible"
 
 # GHCR
 ghcr_username: "yiannischionas"
@@ -15,3 +15,83 @@ project_dir: "/home/user/cinemonkey"
 # προαιρετικά, για ευκολία σε tasks
 env_file: "{{ project_dir }}/.env"
 compose_file: "{{ project_dir }}/docker-compose.yml"
+
+domain_name: cinemonkey.com
+
+
+frontend_host_port: 8082
+
+# Keycloak
+keycloak_version: "24.0.5"
+keycloak_tar_sha256: ""   # προαιρετικό
+keycloak_install_dir: "/opt/keycloak"
+keycloak_current_link: "/opt/keycloak/current"
+keycloak_data_dir: "/var/lib/keycloak"
+keycloak_log_dir: "/var/log/keycloak"
+keycloak_realm_import_src: "roles/keycloak/files/import"
+keycloak_realm_import_dst: "/var/lib/keycloak/import"
+keycloak_user: "keycloak"
+keycloak_group: "keycloak"
+keycloak_admin_user: "admin"
+keycloak_admin_password: "admin"
+
+keycloak_db_name: "keycloak"
+keycloak_db_user: "keycloak"
+keycloak_db_password: "keycloakpass"
+
+# Backend
+backend_service_name: "cinemonkey-backend"
+backend_runtime_dir: "/opt/cinemonkey/backend"
+backend_port: 8080
+backend_user: "cinemonkey"
+backend_group: "cinemonkey"
+backend_src_dir: "/opt/src"               # parent dir
+backend_repo_url: "git@github.com:OWNER/cinemonkey-backend.git"
+backend_repo_version: "main"
+backend_subdir: ""                         # αν χρειάζεται
+
+cm_ticket_logo_url: "https://cinemonkey.com/media/LOGO_CLEAN.png"
+
+# Frontend (build on target by default)
+frontend_root: "/var/www/cinemonkey"
+frontend_src_dir: "/opt/src"
+frontend_repo_url: "{{ repo_url }}"
+frontend_repo_version: "{{ repo_branch }}"
+
+
+# --- Frontend paths
+frontend_repo_checkout_dir: "/opt/src/cinemonkey"       # ΠΟΥ θα γίνει το clone του monorepo
+frontend_app_subdir: "cinemonkey-frontend"              # ΣΧΕΤΙΚΑ μέσα στο repo
+frontend_app_dir: "{{ frontend_repo_checkout_dir }}/{{ frontend_app_subdir }}"
+
+# Αν θέλεις build σε δύο βήματα
+frontend_build_cmd: "npm run build"
+frontend_build_dir: "dist"
+
+# Αν δεν έχεις artifact να ανεβάσεις, άστο κενό
+frontend_artifact_src: ""
+
+# Αν το repo είναι private, δώσε path κλειδιού (ή βάλ’ το με vault)
+ssh_key_path: "/home/{{ ansible_user }}/.ssh/id_rsa"
+
+#---------------------------------------
+
+# Frontend internal port (local-only server)
+frontend_internal_port: 8081
+
+# Backend
+backend_http_port: 8080
+
+# Keycloak (HTTP behind nginx)
+keycloak_https_port: 8443        # (αν προτιμάς 8083, άλλαξέ το εδώ)
+keycloak_http_port: 8083    # <-- βάλε 8080 εδώ για να ταιριάζει με το template
+keycloak_http_relative_path: /keycloak
+
+# MinIO
+minio_port: 9000
+minio_console_port: 9001
+
+# MailDev UI
+maildev_ui_port: 1080
+
+

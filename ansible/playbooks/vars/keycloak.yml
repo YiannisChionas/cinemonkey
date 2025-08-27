@@ -1,0 +1,25 @@
+# Keycloak
+keycloak_version: "24.0.5"             # σταθερή έκδοση Quarkus dist
+keycloak_user: keycloak
+keycloak_group: keycloak
+keycloak_install_dir: /opt/keycloak
+keycloak_current_link: /opt/keycloak/current
+keycloak_data_dir: /var/lib/keycloak
+keycloak_log_dir: /var/log/keycloak
+# vars/keycloak.yml (ή group_vars/…)
+keycloak_realm_import_src: "{{ role_path }}/files/import"
+keycloak_realm_import_dst: "{{ keycloak_data_dir }}/import"
+# Πόρτα/route για dev
+keycloak_http_port: 8081
+keycloak_http_relative_path: /keycloak
+
+# Postgres (στον ίδιο σέρβερ)
+keycloak_db_name: keycloak
+keycloak_db_user: kc
+keycloak_db_password: "kc_secret_password"
+keycloak_db_host: "127.0.0.1"
+keycloak_db_port: 5432
+
+# Admin (δημιουργείται στο πρώτο start)
+keycloak_admin_user: admin
+keycloak_admin_password: "admin"

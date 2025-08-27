@@ -1,0 +1,46 @@
+# Πού θα μπει το έτοιμο service + jar
+backend_user: cmapp
+backend_group: cmapp
+backend_dir: /opt/cinemonkey/cinemonkey-backend
+backend_service_name: cinemonkey-backend
+backend_port: 8080
+
+# --- Build from source ---
+backend_repo_url: "git@github.com:YiannisChionas/cinemonkey.git"
+backend_repo_version: "infra/non-docker-ansible"     # branch/tag/commit
+backend_src_dir: "/opt/src/cinemonkey"
+backend_subdir: "cinemonkey-backend"
+backend_build_dir: "{{ backend_src_dir }}/{{ backend_subdir }}"
+backend_runtime_dir: "/opt/cinemonkey/cinemonkey-backend"
+backend_upload_dir: "/var/lib/cinemonkey/posters"
+backend_app_seed: "true"
+# --- DB ---
+db_host: "127.0.0.1"
+db_port: 5432
+db_name: "cinemonkey"
+db_user: "cm"
+db_password: "MonkeyBeyusiness"
+
+# --- MinIO ---
+minio_endpoint: "http://127.0.0.1:9000"
+minio_access_key: "minioadmin"
+minio_secret_key: "minioadminpassword"
+minio_bucket_posters: "posters"
+
+# --- Keycloak (αν το θες) ---
+keycloak_auth_server_url: "http://127.0.0.1:8081/keycloak"
+keycloak_realm: "cine-monkey"
+keycloak_client: "cm"
+
+# --- MailDev (για SMTP του app) ---
+maildev_smtp_port: 1025
+maildev_ui_port: 8025
+maildev_container_name: "maildev"
+ssh_key_path: "/home/{{ ansible_user }}/.ssh/id_rsa"
+
+cm_app_seed: true
+
+cm_mail_host: "localhost"
+cm_mail_port: 1025
+
+cm_ticket_logo_url: "http://127.0.0.1:9000/posters/LOGO_CLEAN.png"

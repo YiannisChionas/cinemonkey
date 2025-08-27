@@ -1,0 +1,24 @@
+# βασικά
+minio_root_user: "minioadmin"
+minio_root_password: "monkeyminio"
+
+# ports
+minio_api_address: ":9000"
+minio_console_address: ":9001"
+
+# paths
+minio_user: "minio"
+minio_group: "minio"
+minio_bin_dir: "/usr/local/bin"
+minio_data_dir: "/var/lib/minio"
+minio_data_mount: "/var/lib/minio/data"
+minio_env_file: "/etc/minio/minio.env"
+
+# bucket(s) που θέλουμε να υπάρχουν
+minio_buckets:
+  - name: "posters"
+    policy: "download"   # public read
+
+# προαιρετικό seeding (τοποθέτησε seed files στον ρόλο: roles/minio/files/seed/*)
+minio_seed_enable: true
+minio_seed_local_dir: "{{ role_path }}/files/seed"  # μην το αλλάξεις εκτός αν έχεις άλλη δομή

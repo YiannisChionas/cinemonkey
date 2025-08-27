@@ -1,0 +1,126 @@
+# Managed by Ansible
+events {}
+
+http {
+  include       mime.types;
+  default_type  application/octet-stream;
+
+  sendfile on;
+  tcp_nopush on;
+  tcp_nodelay on;
+
+  server_tokens off;
+  client_max_body_size 20m;
+
+  gzip on;
+  gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+  # === Upstreams (bare-metal loopback) ===
+  upstream keycloak-cinemonkey { server 127.0.0.1:{{ keycloak_http_port | default(8443) }}; }
+  upstream cinemonkey-backend  { server 127.0.0.1:{{ backend_http_port  | default(8080) }}; }
+  upstream cinemonkey-frontend { server 127.0.0.1:{{ frontend_host_port | default(8081) }}; }
+  upstream minio-cinemonkey    { server 127.0.0.1:{{ minio_port         | default(9000) }}; }
+  upstream minio-console       { server 127.0.0.1:9001; }
+  upstream mail-dev-cinemonkey { server 127.0.0.1:1080; }
+
+  # --- HTTP -> HTTPS redirect ---
+  server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ domain_name }};
+    return 301 https://$host$request_uri;
+  }
+
+  # --- HTTPS vhost ---
+  server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ domain_name }};
+
+    # EXACTLY like your compose
+    ssl_certificate     /etc/nginx/certs/cinemonkey.com.pem;
+    ssl_certificate_key /etc/nginx/certs/cinemonkey.com-key.pem;
+
+    # Health for Ansible
+    location = /__nginx_stamp { default_type text/plain; return 200 "ok\n"; }
+
+    # ============== Keycloak (HTTP upstream @ 8080), under /keycloak ==============
+    location /keycloak/ {
+      proxy_pass https://127.0.0.1:8443;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Forwarded-Prefix /keycloak;
+    }
+
+    # (προαιρετικά convenience redirects αν πήγαινες σε /admin ή /resources χωρίς /keycloak)
+      location /admin/     { return 301 /keycloak/admin/; }
+      location /resources/ { return 301 /keycloak/resources/; }
+
+    # ============================ Backend API ============================
+    location /api/ {
+      proxy_pass http://cinemonkey-backend/;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_http_version 1.1;
+      proxy_set_header Connection "";
+    }
+
+    # ============================ Frontend ==============================
+    {% if (frontend_mode | default('static')) == 'proxy' %}
+    # Proxy σε ξεχωριστό frontend server (όπως στο compose)
+    location / {
+      proxy_pass http://cinemonkey-frontend;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    {% else %}
+    # Static build από το filesystem (default bare-metal)
+    root {{ frontend_root | default('/var/www/cinemonkey') }};
+    index index.html;
+    location / { try_files $uri /index.html; }
+    {% endif %}
+
+    # ============================ MinIO ================================
+    # Files: /media -> posters/
+    location /media/ {
+      proxy_pass http://minio-cinemonkey/posters/;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Console: /minio -> 9001
+    location /minio/ {
+      proxy_pass http://minio-console/;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      sub_filter_types text/html;
+      sub_filter 'href="/' 'href="/minio/';
+      sub_filter 'src="/'  'src="/minio/';
+      sub_filter_once off;
+
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    }
+
+    # ============================ MailDev (dev) ========================
+    location /mail-dev-cinemonkey/ {
+      rewrite ^/mail-dev-cinemonkey/(.*)$ /$1 break;
+      proxy_pass http://mail-dev-cinemonkey/;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    }
+  }
+}

@@ -1,0 +1,8 @@
+---
+- name: Provision Keycloak
+  hosts: cinemonkey
+  become: true
+  vars_files:
+    - ../vars/keycloak.yml
+  roles:
+    - keycloak

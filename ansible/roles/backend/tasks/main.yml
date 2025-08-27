@@ -1,0 +1,326 @@
+---
+# Build deps
+- name: Install build deps (JDK, git)
+  become: true
+  ansible.builtin.apt:
+    name:
+      - openjdk-17-jdk
+      - git
+    state: present
+    update_cache: yes
+
+# System user/group
+- name: Create backend group
+  become: true
+  ansible.builtin.group:
+    name: "{{ backend_group }}"
+    system: true
+
+- name: Create backend user
+  become: true
+  ansible.builtin.user:
+    name: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+# Dirs
+- name: Create runtime and log dirs
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(backend_user) }}"
+    group: "{{ item.group | default(backend_group) }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: "{{ backend_runtime_dir }}" }
+    - { path: "/var/log/{{ backend_service_name }}" }
+
+- name: Ensure source parent dir exists (owned by {{ ansible_user }})
+  become: true
+  ansible.builtin.file:
+    path: "{{ backend_src_dir | dirname }}"     # e.g. /opt/src
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+
+# SSH for git (on target, as {{ ansible_user }})
+- name: Ensure ~/.ssh exists
+  become: false
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.ssh"
+    state: directory
+    mode: "0700"
+
+- name: Enforce 0600 on private key (if present)
+  become: false
+  ansible.builtin.stat:
+    path: "{{ ssh_key_path }}"
+  register: ssh_key
+
+- name: Set 0600 on key
+  become: false
+  ansible.builtin.file:
+    path: "{{ ssh_key_path }}"
+    mode: "0600"
+  when: ssh_key.stat.exists
+
+- name: Add github.com to known_hosts
+  become: false
+  ansible.builtin.known_hosts:
+    name: github.com
+    key: "{{ lookup('pipe', 'ssh-keyscan -t rsa,ecdsa,ed25519 github.com 2>/dev/null') }}"
+    path: "/home/{{ ansible_user }}/.ssh/known_hosts"
+    state: present
+
+# Source checkout
+- name: Check if {{ backend_src_dir }} is a git repo
+  become: true
+  ansible.builtin.stat:
+    path: "{{ backend_src_dir }}/.git"
+  register: git_dir
+
+- name: Remove non-git dir to allow fresh clone
+  become: true
+  ansible.builtin.file:
+    path: "{{ backend_src_dir }}"
+    state: absent
+  when: not git_dir.stat.exists
+
+- name: Ensure repo dir exists and is owned correctly
+  become: true
+  ansible.builtin.file:
+    path: "{{ backend_src_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+
+- name: Fix ownership recursively if repo pre-exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ backend_src_dir }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    recurse: true
+  when: git_dir.stat.exists
+
+- name: Checkout source
+  become: false
+  ansible.builtin.git:
+    repo: "{{ backend_repo_url }}"
+    dest: "{{ backend_src_dir }}"
+    version: "{{ backend_repo_version }}"
+    update: yes
+    force: yes
+    accept_hostkey: yes
+    key_file: "{{ ssh_key_path }}"
+    ssh_opts: "-o StrictHostKeyChecking=accept-new"
+
+# Build
+- name: Compute build_dir
+  ansible.builtin.set_fact:
+    build_dir: "{{ backend_src_dir if (backend_subdir|length==0) else backend_src_dir ~ '/' ~ backend_subdir }}"
+
+- name: Check for mvnw
+  become: true
+  ansible.builtin.stat:
+    path: "{{ build_dir }}/mvnw"
+  register: mvnw_stat
+
+- name: Install Maven if no wrapper
+  become: true
+  ansible.builtin.apt:
+    name: maven
+    state: present
+  when: not mvnw_stat.stat.exists
+
+- name: Ensure mvnw is executable (if present)
+  become: true
+  ansible.builtin.file:
+    path: "{{ build_dir }}/mvnw"
+    mode: "0755"
+  when: mvnw_stat.stat.exists
+
+- name: Build with Maven (wrapper if present)
+  become: true
+  ansible.builtin.shell: >
+    {{ './mvnw' if mvnw_stat.stat.exists else 'mvn' }}
+    -B -DskipTests clean package
+  args:
+    chdir: "{{ build_dir }}"
+  environment:
+    MAVEN_OPTS: "-Xmx512m"
+
+- name: Find built jar
+  become: true
+  ansible.builtin.find:
+    paths: "{{ build_dir }}/target"
+    patterns: "*.jar"
+    recurse: no
+  register: jar_find
+
+- name: Fail if no jar built
+  ansible.builtin.fail:
+    msg: "Δεν βρέθηκε jar στο {{ build_dir }}/target. Έλεγξε το build."
+  when: jar_find.files | length == 0
+
+- name: Pick first non-sources/javadoc jar
+  ansible.builtin.set_fact:
+    built_jar: >-
+      {{
+        (jar_find.files
+          | rejectattr('path','search','sources')
+          | rejectattr('path','search','javadoc')
+          | list)[0].path
+      }}
+
+# Deploy artifacts & config (στο σωστό runtime dir)
+- name: Install app.jar to runtime dir
+  become: true
+  ansible.builtin.copy:
+    src: "{{ built_jar }}"
+    dest: "{{ backend_runtime_dir }}/app.jar"
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0644"
+    remote_src: true
+  notify: Restart backend
+
+- name: Render application.yml (from template)
+  become: true
+  ansible.builtin.template:
+    src: application.yml.j2
+    dest: "{{ backend_runtime_dir }}/application.yml"
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0640"
+  notify: Restart backend
+  tags: [backend_config]
+
+- name: Render /etc/default env file (LOGO_URL + truststore)
+  become: true
+  ansible.builtin.copy:
+    dest: "/etc/default/{{ backend_service_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      LOGO_URL={{ cm_ticket_logo_url }}
+      SPRING_CONFIG_LOCATION={{ backend_runtime_dir }}/application.yml
+      JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStore=/etc/cinemonkey/cm-truststore.jks -Djavax.net.ssl.trustStorePassword=changeit
+      APP_SEED={{ backend_app_seed | default('true') }}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=https://{{ domain_name }}/keycloak/realms/cine-monkey
+      MAIL_HOST=127.0.0.1
+      MAIL_PORT=1025
+  notify: Restart backend
+
+
+
+- name: Ensure Keycloak TLS dir exists
+  become: true
+  file:
+    path: /etc/keycloak/tls
+    state: directory
+    mode: "0755"
+
+- name: Check TLS materials for Keycloak
+  become: true
+  stat:
+    path: /etc/keycloak/tls/cinemonkey.crt
+  register: kc_tls_crt
+
+- name: Check TLS key
+  become: true
+  stat:
+    path: /etc/keycloak/tls/cinemonkey.key
+  register: kc_tls_key
+
+- name: Fail early if TLS files missing (run nginx_proxy first)
+  fail:
+    msg: "Λείπουν /etc/keycloak/tls/cinemonkey.(crt|key). Τρέξε πρώτα το playbook του nginx_proxy."
+  when: not kc_tls_crt.stat.exists or not kc_tls_key.stat.exists
+
+
+# Systemd unit (ένα και καλό)
+- name: Install systemd unit
+  become: true
+  ansible.builtin.template:
+    src: "backend.service.j2"
+    dest: "/etc/systemd/system/{{ backend_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Daemon reload
+    - Restart backend
+
+- name: Ensure /etc/cinemonkey
+  become: true
+  file:
+    path: /etc/cinemonkey
+    state: directory
+    mode: "0755"
+
+- name: Copy nginx certificate (PEM actually used by nginx) to backend
+  become: true
+  copy:
+    src: /etc/nginx/certs/cinemonkey.com.pem
+    dest: /etc/cinemonkey/cinemonkey.pem
+    remote_src: true
+    mode: "0644"
+
+- name: Create truststore from PEM (overwrite to keep in sync)
+  become: true
+  shell: |
+    set -e
+    keytool -delete -alias cinemonkey \
+      -keystore /etc/cinemonkey/cm-truststore.jks \
+      -storepass changeit >/dev/null 2>&1 || true
+    keytool -importcert -noprompt -trustcacerts \
+      -alias cinemonkey \
+      -file /etc/cinemonkey/cinemonkey.pem \
+      -keystore /etc/cinemonkey/cm-truststore.jks \
+      -storepass changeit
+  args:
+    creates: ""   # να τρέχει πάντα
+  notify: Restart backend
+
+# === Περιμένω OIDC discovery να απαντά 200 πριν ξεκινήσω backend ===
+- name: Wait for Keycloak OIDC discovery (via nginx)
+  uri:
+    url: "https://{{ domain_name }}/keycloak/realms/cine-monkey/.well-known/openid-configuration"
+    method: GET
+    status_code: 200
+    validate_certs: no
+  register: kc_ready
+  retries: 40
+  delay: 3
+  until: kc_ready.status == 200
+
+- name: Ensure upload dir exists for posters
+  become: true
+  ansible.builtin.file:
+    path: "{{ backend_upload_dir | default('/var/lib/cinemonkey/posters') }}"
+    state: directory
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0755"
+
+
+- name: Ensure backend service is enabled & started
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ backend_service_name }}"
+    enabled: true
+    state: started
+
+- name: Wait for backend to listen
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ backend_port }}"
+    delay: 3
+    timeout: 180

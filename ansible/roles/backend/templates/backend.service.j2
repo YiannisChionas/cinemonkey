@@ -1,0 +1,20 @@
+[Unit]
+Description=CineMonkey Backend (Spring Boot)
+After=network.target postgresql.service minio.service
+Requires=postgresql.service
+
+[Service]
+User={{ backend_user }}
+Group={{ backend_group }}
+WorkingDirectory={{ backend_runtime_dir }}
+
+EnvironmentFile=-/etc/default/{{ backend_service_name }}
+Environment="SPRING_CONFIG_LOCATION=/opt/cinemonkey/cinemonkey-backend/application.yml"
+Environment="JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStore=/etc/cinemonkey/cm-truststore.jks -Djavax.net.ssl.trustStorePassword=changeit"
+
+ExecStart=/usr/bin/java -jar {{ backend_runtime_dir }}/app.jar
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

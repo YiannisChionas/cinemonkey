@@ -1,0 +1,356 @@
+---
+- name: Install deps (JDK, tar)
+  become: true
+  ansible.builtin.apt:
+    name:
+      - openjdk-17-jdk
+      - tar
+      - gzip
+      - curl
+    state: present
+    update_cache: yes
+
+- name: Create group
+  become: true
+  ansible.builtin.group:
+    name: "{{ keycloak_group }}"
+    system: true
+
+- name: Create user
+  become: true
+  ansible.builtin.user:
+    name: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Ensure dirs
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(keycloak_user) }}"
+    group: "{{ item.group | default(keycloak_group) }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: "{{ keycloak_install_dir }}", owner: "root", group: "root" }
+    - { path: "{{ keycloak_data_dir }}" }
+    - { path: "{{ keycloak_log_dir }}", owner: "root", group: "root" }
+
+- name: Ensure import dir exists
+  become: true
+  file:
+    path: "{{ keycloak_realm_import_dst }}"
+    state: directory
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: "0755"
+
+- name: Copy realm import JSONs
+  become: true
+  copy:
+    src: "{{ item }}"
+    dest: "{{ keycloak_realm_import_dst }}/"
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: "0644"
+  with_fileglob:
+    - "{{ keycloak_realm_import_src }}/*.json"
+  notify: Restart keycloak
+
+- name: Force re-import next start (drop stale sentinel)
+  become: true
+  file:
+    path: "{{ keycloak_data_dir }}/.realm_imported"
+    state: absent
+  notify: Restart keycloak
+
+- name: List realm JSONs found on remote
+  become: true
+  command: bash -lc "ls -l {{ keycloak_realm_import_dst }}/*.json"
+  register: kc_import_ls
+  changed_when: false
+
+- debug:
+    var: kc_import_ls.stdout_lines
+
+
+# --- Postgres DB/user για Keycloak (τρέχεις με community.postgresql εγκατεστημένο)
+- name: Ensure Keycloak DB
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ keycloak_db_name }}"
+
+- name: Ensure Keycloak DB user
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: "{{ keycloak_db_user }}"
+    password: "{{ keycloak_db_password }}"
+    db: "{{ keycloak_db_name }}"
+    priv: "ALL"
+
+# Δώσε ιδιοκτησία της βάσης στον χρήστη του Keycloak (ασφαλές και καθαρό)
+- name: Ensure Keycloak DB has correct owner
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ keycloak_db_name }}"
+    owner: "{{ keycloak_db_user }}"
+
+# Δικαιώματα στο schema public για τον χρήστη του Keycloak
+- name: Grant USAGE,CREATE on schema public to Keycloak user
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    db: "{{ keycloak_db_name }}"
+    type: schema
+    objs: public
+    roles: "{{ keycloak_db_user }}"
+    privs: USAGE,CREATE
+
+- name: Make Keycloak user owner of public schema
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_schema:
+    db: "{{ keycloak_db_name }}"
+    name: public
+    owner: "{{ keycloak_db_user }}"
+
+
+# --- Download & install KC
+- name: Download Keycloak tarball (robust, target-side)
+  become: true
+  ansible.builtin.get_url:
+    url: "https://github.com/keycloak/keycloak/releases/download/{{ keycloak_version }}/keycloak-{{ keycloak_version }}.tar.gz"
+    dest: "/tmp/keycloak-{{ keycloak_version }}.tar.gz"
+    mode: "0644"
+    force: true
+    timeout: 300
+    headers:
+      User-Agent: "ansible/{{ ansible_version.full }}"
+    checksum: "{{ ('sha256:' + keycloak_tar_sha256) if (keycloak_tar_sha256|default('')|length > 0) else omit }}"
+  register: kc_tar
+  retries: 5
+  delay: 10
+  until: kc_tar is succeeded
+
+- name: Unarchive to versioned dir
+  become: true
+  ansible.builtin.unarchive:
+    src: "/tmp/keycloak-{{ keycloak_version }}.tar.gz"
+    dest: "{{ keycloak_install_dir }}"
+    remote_src: true
+    creates: "{{ keycloak_install_dir }}/keycloak-{{ keycloak_version }}"
+- name: Symlink current
+  become: true
+  ansible.builtin.file:
+    src: "{{ keycloak_install_dir }}/keycloak-{{ keycloak_version }}"
+    dest: "{{ keycloak_current_link }}"
+    state: link
+  notify: Restart keycloak
+
+- name: Ensure keycloak files owned by keycloak
+  become: true
+  ansible.builtin.file:
+    path: "{{ keycloak_install_dir }}/keycloak-{{ keycloak_version }}"
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    recurse: true
+
+- name: Render /etc/default/keycloak
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/default/keycloak
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      KEYCLOAK_ADMIN={{ keycloak_admin_user | default('admin') }}
+      KEYCLOAK_ADMIN_PASSWORD={{ keycloak_admin_password | default('admin') }}
+
+      # DB
+      KC_DB=postgres
+      KC_DB_URL=jdbc:postgresql://{{ keycloak_db_host | default('127.0.0.1') }}:{{ keycloak_db_port | default(5432) }}/{{ keycloak_db_name | default('keycloak') }}
+      KC_DB_USERNAME={{ keycloak_db_user | default('keycloak') }}
+      KC_DB_PASSWORD={{ keycloak_db_password | default('keycloakpass') }}
+
+      # Path & proxy
+      KC_HTTP_RELATIVE_PATH=/keycloak
+      KC_HOSTNAME_PATH=/keycloak
+      KC_HOSTNAME={{ domain_name }}
+      KC_HOSTNAME_STRICT=false
+      KC_PROXY_HEADERS=xforwarded
+      
+      # ΝΕΟ: βοηθά το admin UI να κόβει σωστά URLs πίσω από path
+      KC_HOSTNAME_ADMIN_URL=https://{{ domain_name }}/keycloak
+      KC_HOSTNAME_FRONTEND_URL=https://{{ domain_name }}/keycloak
+
+      # HTTPS (end-to-end)
+      KC_HTTP_ENABLED=false
+      KC_HTTPS_CERTIFICATE_FILE=/etc/keycloak/tls/cinemonkey.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE=/etc/keycloak/tls/cinemonkey.key
+      KC_HTTPS_PORT={{ keycloak_https_port }}
+
+      JAVA_OPTS_APPEND="-Djava.net.preferIPv4Stack=true"
+      KC_HEALTH_ENABLED=true
+      KC_METRICS_ENABLED=true
+  notify: Restart keycloak
+
+
+- name: Ensure Keycloak TLS dir exists
+  become: true
+  file:
+    path: /etc/keycloak/tls
+    state: directory
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: "0750"
+
+- name: Copy cert to Keycloak TLS dir
+  become: true
+  copy:
+    src: /etc/nginx/certs/cinemonkey.crt
+    dest: /etc/keycloak/tls/cinemonkey.crt
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: "0644"
+    remote_src: true
+  notify: Restart keycloak
+
+- name: Copy key to Keycloak TLS dir
+  become: true
+  copy:
+    src: /etc/nginx/certs/cinemonkey.key
+    dest: /etc/keycloak/tls/cinemonkey.key
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: "0600"
+    remote_src: true
+  notify: Restart keycloak
+
+
+- name: Check TLS materials for Keycloak
+  become: true
+  stat:
+    path: /etc/keycloak/tls/cinemonkey.crt
+  register: kc_tls_crt
+
+- name: Check TLS key
+  become: true
+  stat:
+    path: /etc/keycloak/tls/cinemonkey.key
+  register: kc_tls_key
+
+- name: Fail early if TLS files missing (run nginx_proxy first)
+  fail:
+    msg: "Λείπουν /etc/keycloak/tls/cinemonkey.(crt|key). Τρέξε πρώτα το playbook του nginx_proxy."
+  when: not kc_tls_crt.stat.exists or not kc_tls_key.stat.exists
+
+
+# --- systemd unit
+- name: Install systemd unit
+  template:
+    src: keycloak.service.j2
+    dest: /etc/systemd/system/keycloak.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Daemon reload
+    - Restart keycloak
+
+- name: Remove keycloak drop-in overrides (αν υπάρχουν)
+  file:
+    path: /etc/systemd/system/keycloak.service.d
+    state: absent
+  notify:
+    - Daemon reload
+
+- name: Assert ExecStart clean
+  shell: "grep -n 'ExecStart' /etc/systemd/system/keycloak.service || true"
+  register: kc_unit_grep
+  changed_when: false
+
+- name: Show ExecStart lines
+  debug:
+    var: kc_unit_grep.stdout_lines
+
+- name: Find realm JSON files (remote)
+  become: true
+  ansible.builtin.find:
+    paths: "{{ keycloak_realm_import_dst }}"
+    patterns: "*.json"
+    file_type: file
+  register: kc_jsons
+
+- name: Fail if no realm JSONs found
+  ansible.builtin.fail:
+    msg: "Δεν βρέθηκαν *.json στο {{ keycloak_realm_import_dst }} – άρα δεν υπάρχει τίποτα να γίνει import."
+  when: (kc_jsons.files | length) == 0
+
+- name: Pick first realm JSON
+  ansible.builtin.set_fact:
+    kc_realm_json_path: "{{ (kc_jsons.files | map(attribute='path') | list | sort)[0] }}"
+
+- name: Slurp realm JSON
+  become: true
+  ansible.builtin.slurp:
+    src: "{{ kc_realm_json_path }}"
+  register: kc_realm_json_raw
+
+- name: Extract realm name from JSON (fallback σε cine-monkey)
+  ansible.builtin.set_fact:
+    kc_expected_realm: "{{ (kc_realm_json_raw.content | b64decode | from_json).realm | default('cine-monkey') }}"
+
+- name: Chown TLS dir & files to keycloak
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: "{{ item.mode }}"
+    state: "{{ item.state | default('file') }}"
+  loop:
+    - { path: /etc/keycloak/tls, mode: "0750", state: "directory" }
+    - { path: /etc/keycloak/tls/cinemonkey.crt, mode: "0644" }
+    - { path: /etc/keycloak/tls/cinemonkey.key, mode: "0600" }
+
+
+- name: Fix ownership & perms on cert and key
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: "{{ keycloak_user }}"
+    group: "{{ keycloak_group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /etc/keycloak/tls/cinemonkey.crt, mode: "0644" }
+    - { path: /etc/keycloak/tls/cinemonkey.key, mode: "0600" }
+
+
+- name: Enable & start keycloak
+  systemd:
+    name: keycloak
+    enabled: true
+    state: started
+
+- name: Wait for Keycloak HTTPS socket
+  wait_for:
+    host: "127.0.0.1"
+    port: "{{ keycloak_https_port }}"
+    timeout: 180
+
+- name: Check OIDC discovery (direct to Keycloak, bypass nginx)
+  uri:
+    url: "https://127.0.0.1:{{ keycloak_https_port }}/keycloak/realms/{{ kc_realm_name | default('cine-monkey') }}/.well-known/openid-configuration"
+    method: GET
+    status_code: 200
+    validate_certs: no
+  register: kc_oidc_direct
+  retries: 40
+  delay: 3
+  until: kc_oidc_direct.status == 200
+

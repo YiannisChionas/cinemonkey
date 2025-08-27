@@ -1,0 +1,220 @@
+---
+- name: Ensure web root
+  become: true
+  file:
+    path: "{{ frontend_root | default('/var/www/cinemonkey') }}"
+    state: directory
+    mode: "0755"
+
+- name: Use uploaded artifact if provided
+  when: (frontend_artifact_src | default('')) | length > 0
+  block:
+    - name: Upload artifact
+      become: true
+      copy:
+        src: "{{ frontend_artifact_src }}"
+        dest: /tmp/frontend.tar.gz
+        mode: "0644"
+
+    - name: Extract to web root (clean first)
+      become: true
+      shell: |
+        rm -rf {{ frontend_root | default('/var/www/cinemonkey') }}/*
+        tar -xzf /tmp/frontend.tar.gz -C {{ frontend_root | default('/var/www/cinemonkey') }} --strip-components=1
+      args:
+        executable: /bin/bash
+      notify: Reload nginx
+
+- name: Build on target if no artifact
+  when: (frontend_artifact_src | default('')) | length == 0
+  block:
+    # 0) Καθαρίζω πλήρως το παλιό Node 12 stack
+    - name: Purge distro NodeJS stack (Node 12) that conflicts with NodeSource
+      become: true
+      apt:
+        name:
+          - nodejs
+          - nodejs-doc
+          - npm
+          - libnode-dev
+          - libnode72
+          - libuv1-dev
+        state: absent
+        purge: true
+      ignore_errors: true
+
+    - name: Remove leftover /usr/include/node (if any)
+      become: true
+      file:
+        path: /usr/include/node
+        state: absent
+
+    - name: Autoremove residual dependencies
+      become: true
+      apt:
+        autoremove: yes
+
+    # 1) Προαπαιτούμενα
+    - name: Install curl and ca-certificates
+      become: true
+      apt:
+        name: [curl, ca-certificates]
+        state: present
+        update_cache: yes
+
+    # 2) Node.js 20 από NodeSource (καθαρά)
+    - name: Add NodeSource GPG
+      become: true
+      apt_key:
+        url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+        state: present
+
+    - name: Add NodeSource 20 repo
+      become: true
+      apt_repository:
+        repo: "deb [arch=amd64] https://deb.nodesource.com/node_20.x nodistro main"
+        filename: nodesource-node20
+        state: present
+
+    - name: Install nodejs 20.x
+      become: true
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    - name: Check Node.js version (must be >= 18.19)
+      command: /usr/bin/node -v
+      register: node_ver
+      changed_when: false
+
+    - name: Fail if Node.js too old
+      fail:
+        msg: "Node.js {{ node_ver.stdout }} found, need >= v18.19. NodeSource install didn’t take."
+      when: (node_ver.stdout | regex_replace('^v','')) is version('18.19', '<')
+
+    # 3) Git clone monorepo
+    - name: Ensure ~/.ssh exists for {{ ansible_user }}
+      become: false
+      file:
+        path: "/home/{{ ansible_user }}/.ssh"
+        state: directory
+        mode: "0700"
+
+    - name: Add github.com to known_hosts
+      become: false
+      known_hosts:
+        name: github.com
+        key: "{{ lookup('pipe', 'ssh-keyscan -t rsa,ecdsa,ed25519 github.com 2>/dev/null') }}"
+        path: "/home/{{ ansible_user }}/.ssh/known_hosts"
+        state: present
+
+    - name: Ensure parent of checkout dir exists
+      become: true
+      file:
+        path: "{{ frontend_repo_checkout_dir | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check if {{ frontend_repo_checkout_dir }} is a git repo
+      become: true
+      stat:
+        path: "{{ frontend_repo_checkout_dir }}/.git"
+      register: frontend_git_dir
+
+    - name: Remove non-git dir to allow fresh clone
+      become: true
+      file:
+        path: "{{ frontend_repo_checkout_dir }}"
+        state: absent
+      when: not frontend_git_dir.stat.exists
+
+    - name: Ensure repo dir exists and is owned correctly
+      become: true
+      file:
+        path: "{{ frontend_repo_checkout_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Fix ownership recursively if repo pre-exists
+      become: true
+      file:
+        path: "{{ frontend_repo_checkout_dir }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        recurse: true
+      when: frontend_git_dir.stat.exists
+
+    - name: Checkout frontend repo (SSH key only if needed)
+      become: false
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ frontend_repo_checkout_dir }}"
+        version: "{{ repo_branch }}"
+        update: yes
+        force: yes
+        accept_hostkey: yes
+        key_file: "{{ ssh_key_path | default(omit) }}"
+        ssh_opts: "{{ '-o StrictHostKeyChecking=accept-new' if (repo_url is match('^(git@|ssh://)')) else omit }}"
+
+    # 4) Build στο σωστό subdir του Angular app
+    - name: Install deps (npm ci)
+      become: true
+      shell: npm ci
+      args:
+        chdir: "{{ frontend_app_dir }}"
+
+    - name: Build (Angular)
+      become: true
+      shell: "{{ frontend_build_cmd | default('npm run build') }}"
+      args:
+        chdir: "{{ frontend_app_dir }}"
+
+    # 5) Εντοπισμός πραγματικού build dir (dist/<app>/browser ή dist/<app>)
+    - name: Detect Angular effective build dir
+      become: true
+      shell: |
+        set -euo pipefail
+        base="{{ frontend_build_dir | default('dist') }}"
+        pick=""
+        if [ -d "$base" ]; then
+          if compgen -G "$base/*/browser" > /dev/null; then
+            pick="$(ls -d $base/*/browser | head -n1)"
+          elif compgen -G "$base/*" > /dev/null; then
+            pick="$(ls -d $base/* | head -n1)"
+          else
+            pick="$base"
+          fi
+        fi
+        echo "$pick"
+      args:
+        chdir: "{{ frontend_app_dir }}"
+        executable: /bin/bash
+      register: ng_effective_build
+
+    - name: Fail if build dir not found
+      fail:
+        msg: "Δεν βρέθηκε build output στο {{ frontend_app_dir }}/{{ frontend_build_dir }}."
+      when: (ng_effective_build.stdout | trim) | length == 0
+
+    - name: Deploy build to web root (clean)
+      become: true
+      shell: |
+        rm -rf "{{ frontend_root }}"/*
+        cp -a "{{ frontend_app_dir }}/{{ ng_effective_build.stdout | trim }}/." "{{ frontend_root }}/"
+      args:
+        executable: /bin/bash
+      notify: Reload nginx
+
+    - name: Assert index.html present
+      become: true
+      stat:
+        path: "{{ frontend_root }}/index.html"
+      register: fe_index
+
+    - name: Fail if frontend index missing
+      fail:
+        msg: "Το {{ frontend_root }}/index.html λείπει μετά το deploy."
+      when: not fe_index.stat.exists

@@ -1,0 +1,12 @@
+# playbooks/backend.yml
+- hosts: cinemonkey
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - vars/backend.yml   # θα το φτιάξουμε αμέσως από κάτω
+
+  roles:
+    - role: docker_engine   # εγκατάσταση Docker + python3-docker για modules
+    - role: backend         # εγκατάσταση/ρύθμιση Spring Boot backend ως systemd
+    - role: maildev         # MailDev container επάνω στο Docker

@@ -1,0 +1,33 @@
+---
+- name: Ensure Docker is present (already handled elsewhere, but safe)
+  ansible.builtin.stat:
+    path: /usr/bin/docker
+  register: docker_bin
+
+- name: Pull maildev image
+  community.docker.docker_image:
+    name: maildev/maildev
+    source: pull
+  when: docker_bin.stat.exists
+
+- name: Run MailDev container (SMTP 1025, UI 1080 bound in localhost)
+  community.docker.docker_container:
+    name: mail-dev-cinemonkey
+    image: maildev/maildev
+    state: started
+    restart_policy: unless-stopped
+    published_ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:1080:1080"
+
+- name: Wait for SMTP (1025)
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 1025
+    timeout: 60
+
+- name: Wait for UI (1080)
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 1080
+    timeout: 60

@@ -1,0 +1,36 @@
+[Unit]
+Description=Keycloak (Quarkus)
+Wants=network-online.target
+After=network-online.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User={{ keycloak_user }}
+Group={{ keycloak_group }}
+WorkingDirectory={{ keycloak_current_link }}
+EnvironmentFile=-/etc/default/keycloak
+
+# build (αβλαβές αν δεν αλλάξει κάτι)
+ExecStartPre=-{{ keycloak_current_link }}/bin/kc.sh build
+
+# import realm(s) μία φορά – με βάση sentinel, ΜΟΝΟ αν υπάρχουν .json
+ExecStartPre=/bin/bash -c 'set -euo pipefail; \
+  if ls {{ keycloak_realm_import_dst }}/*.json >/dev/null 2>&1; then \
+    if [ ! -f "{{ keycloak_data_dir }}/.realm_imported" ]; then \
+      {{ keycloak_current_link }}/bin/kc.sh import --dir {{ keycloak_realm_import_dst }} --override=true && \
+      touch "{{ keycloak_data_dir }}/.realm_imported"; \
+    fi; \
+  fi'
+
+# start κανονικά (HTTPS, relative path ρυθμισμένα στα env)
+ExecStart={{ keycloak_current_link }}/bin/kc.sh start
+
+Restart=always
+RestartSec=5
+LimitNOFILE=524288
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

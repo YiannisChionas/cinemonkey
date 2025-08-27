@@ -1,0 +1,9 @@
+- hosts: cinemonkey
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - vars/postgres.yml
+
+  roles:
+    - postgres
