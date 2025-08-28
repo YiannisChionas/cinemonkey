@@ -14,7 +14,9 @@ pipeline {
             steps {
                 sh '''
                     echo "Start testing"
-                    ./mvnw -Dspring.profiles.active=test -Dspring.datasource.url=jdbc:h2:mem:testdb test
+                    set -eux
+                    chmod +x mvnw || true
+                    ./mvnw -V -B -Dspring.profiles.active=test -Dspring.datasource.url=jdbc:h2:mem:testdb test
                 '''
             }
         }
