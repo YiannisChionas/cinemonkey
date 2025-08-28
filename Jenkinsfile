@@ -29,12 +29,16 @@ pipeline {
                 dir('cinemonkey-backend') {
                     sh '''
                         HEAD_COMMIT=$(git rev-parse --short HEAD)
-                        TAG=$HEAD_COMMIT-$BUILD_ID
-                        docker build --rm -t $DOCKER_PREFIX:latest -f Dockerfile.ci .
-                    '''
-                    sh '''
+                        TAG=${HEAD_COMMIT}-${BUILD_ID}
+
+                        DOCKER_IMAGE="ghcr.io/yiannischionas/cinemonkey-backend"
+
+                        docker build --rm -t $DOCKER_PREFIX:latest -f Dockerfile.ci -t ${DOCKER_IMAGE}:$TAG -t ${DOCKER_IMAGE}:latest .
+
                         echo $DOCKER_TOKEN | docker login $DOCKER_SERVER -u $DOCKER_USER --password-stdin
-                        docker push $DOCKER_PREFIX --all-tags
+                        docker push ${DOCKER_IMAGE}:$TAG
+                        docker push ${DOCKER_IMAGE}:latest
+                        docker logout $DOCKER_SERVER || true
                     '''
                 }
             }
