@@ -6,6 +6,8 @@ pipeline {
         DOCKER_USER='yiannischionas'
         DOCKER_SERVER='ghcr.io'
         DOCKER_PREFIX='ghcr.io/yiannischionas/cinemonkey'
+        DOCKER_IMAGE_FRONT = 'ghcr.io/yiannischionas/cinemonkey-frontend'
+        DOCKER_IMAGE_BACKEND="ghcr.io/yiannischionas/cinemonkey-backend"
     }
 
     stages {
@@ -31,13 +33,36 @@ pipeline {
                         HEAD_COMMIT=$(git rev-parse --short HEAD)
                         TAG=${HEAD_COMMIT}-${BUILD_ID}
 
-                        DOCKER_IMAGE="ghcr.io/yiannischionas/cinemonkey-backend"
-
-                        docker build --rm -t $DOCKER_PREFIX:latest -f Dockerfile.ci -t ${DOCKER_IMAGE}:$TAG -t ${DOCKER_IMAGE}:latest .
+                        docker build --rm -t $DOCKER_PREFIX:latest -f Dockerfile.ci \
+                        -t ${DOCKER_IMAGE_BACKEND}:$TAG \
+                        -t ${DOCKER_IMAGE_BACKEND}:latest \
+                        .
 
                         echo $DOCKER_TOKEN | docker login $DOCKER_SERVER -u $DOCKER_USER --password-stdin
-                        docker push ${DOCKER_IMAGE}:$TAG
-                        docker push ${DOCKER_IMAGE}:latest
+                        docker push ${DOCKER_IMAGE_BACKEND}:$TAG
+                        docker push ${DOCKER_IMAGE_BACKEND}:latest
+                        docker logout $DOCKER_SERVER || true
+                    '''
+                }
+            }
+        }
+        stage('Build & Push Frontend Image') {
+            steps {
+                dir('cinemonkey-frontend') {          // φάκελος frontend στο monorepo
+                    sh '''
+                        set -eux
+                        HEAD_COMMIT=$(git rev-parse --short=8 HEAD)
+                        TAG="${HEAD_COMMIT}-${BUILD_ID}"
+
+                        docker build --rm \
+                        -f Dockerfile \
+                        -t ${DOCKER_IMAGE_FRONT}:$TAG \
+                        -t ${DOCKER_IMAGE_FRONT}:latest \
+                        .
+
+                        echo "$DOCKER_TOKEN" | docker login $DOCKER_SERVER -u $DOCKER_USER --password-stdin
+                        docker push ${DOCKER_IMAGE_FRONT}:$TAG
+                        docker push ${DOCKER_IMAGE_FRONT}:latest
                         docker logout $DOCKER_SERVER || true
                     '''
                 }
