@@ -16,8 +16,9 @@ pipeline {
                     sh '''
                         echo "Start testing"
                         set -eux
-                        chmod +x mvnw || true
-                        ./mvnw -V -B -Dspring.profiles.active=test -Dspring.datasource.url=jdbc:h2:mem:testdb test
+                        docker run --rm -v "$PWD":/app -w /app maven:3.9-eclipse-temurin-17 \
+                                  mvn -V -B -Dspring.profiles.active=test \
+                                         -Dspring.datasource.url=jdbc:h2:mem:testdb test
                     '''
                 }
             }
