@@ -1,9 +1,9 @@
 # --- Build stage ---
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /build
-COPY cinemonkey-backend/pom.xml .
+COPY pom.xml .
 RUN mvn -B -q -DskipTests dependency:go-offline
-COPY cinemonkey-backend/ .
+COPY . .
 # Αν θες tests στη CI, ορίσε RUN_TESTS=true στο action
 ARG RUN_TESTS=false
 RUN if [ "$RUN_TESTS" = "true" ]; then mvn -B -P test verify; else mvn -B -DskipTests package; fi
