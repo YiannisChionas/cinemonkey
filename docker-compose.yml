@@ -4,7 +4,7 @@ services:
     image: postgres:15
     environment:
       POSTGRES_USER: cinemonkey
-      POSTGRES_PASSWORD: MonkBeyusiness
+      POSTGRES_PASSWORD: MonkeyBusiness
       PGDATA: /var/lib/postgresql/data
       POSTGRES_DB: cinemonkey
     volumes:
