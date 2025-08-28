@@ -12,12 +12,14 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh '''
-                    echo "Start testing"
-                    set -eux
-                    chmod +x mvnw || true
-                    ./mvnw -V -B -Dspring.profiles.active=test -Dspring.datasource.url=jdbc:h2:mem:testdb test
-                '''
+                dir('cinemonkey-backend') {
+                    sh '''
+                        echo "Start testing"
+                        set -eux
+                        chmod +x mvnw || true
+                        ./mvnw -V -B -Dspring.profiles.active=test -Dspring.datasource.url=jdbc:h2:mem:testdb test
+                    '''
+                }
             }
         }
 
