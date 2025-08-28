@@ -9,12 +9,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                // Clone the Git repository
-                git 'git@github.com:YiannisChionas/cinemonkey.git'
-            }
-        }
 
         stage('Test') {
             steps {
