@@ -29,7 +29,7 @@ pipeline {
                 dir('cinemonkey-backend') {
                     sh '''
                         HEAD_COMMIT=$(git rev-parse --short HEAD)
-                        TAG=HEAD_COMMIT-$BUILD_ID
+                        TAG=$HEAD_COMMIT-$BUILD_ID
                         docker build --rm -t $DOCKER_PREFIX:latest -f Dockerfile.ci .
                     '''
                     sh '''
