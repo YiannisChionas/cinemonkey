@@ -14,7 +14,7 @@ WORKDIR /app
 COPY --from=build /build/target/cinemonkey-backend-0.0.1-SNAPSHOT.jar app.jar
 
 # runtime entrypoint: αν βρει PEMs στο /certs, τα εισάγει στο cacerts
-COPY cinemonkey-backend/docker-entrypoint.sh /docker-entrypoint.sh
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 # Αφαίρεση CRLF και δικαιώματα εκτέλεσης
 RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh

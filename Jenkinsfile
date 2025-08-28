@@ -33,7 +33,7 @@ pipeline {
                         HEAD_COMMIT=$(git rev-parse --short HEAD)
                         TAG=${HEAD_COMMIT}-${BUILD_ID}
 
-                        docker build --rm -t $DOCKER_PREFIX:latest -f Dockerfile.ci \
+                        docker build --rm -t $DOCKER_PREFIX:latest -f Dockerfile \
                         -t ${DOCKER_IMAGE_BACKEND}:$TAG \
                         -t ${DOCKER_IMAGE_BACKEND}:latest \
                         .
