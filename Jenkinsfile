@@ -26,7 +26,7 @@ pipeline {
             }
         }
 
-        stage('Docker build and push') {
+        stage('Build & Push Backend Image') {
             steps {
                 dir('cinemonkey-backend') {
                     sh '''

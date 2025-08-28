@@ -185,14 +185,14 @@ public class DevDataLoader implements CommandLineRunner{
         showingService.addMovieToShowing(11,"Urangutango");
         showingService.addMovieToShowing(12,"Dancing with Bonobos");
         //Demo Reservations
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",1);
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",3);
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",5);
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",7);
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",1);
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",2);
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",4);
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",6);
-        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","user1@gmail.com",8);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","jackdoe@gmail.com",1);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","janedoe@gmail.com",3);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","janedoe@gmail.com",5);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","janedoe@gmail.com",7);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","johndoe@hotmail.com",1);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","johndoe@hotmail.com",2);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","johndoe@hotmail.com",4);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","janedoe@gmail.com",6);
+        reservationService.saveReservation("e4940726-b4d0-4bf2-a287-f821d2505f62","janedoe@gmail.com",8);
     }
 }
