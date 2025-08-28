@@ -1,11 +1,18 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_TOKEN=credentials('GHRC_TOKEN')
+        DOCKER_USER='yiannischionas'
+        DOCKER_SERVER='ghcr.io'
+        DOCKER_PREFIX='ghcr.io/yiannischionas/cinemonkey'
+    }
+
     stages {
         stage('Checkout') {
             steps {
                 // Clone the Git repository
-                git 'git@github.com:JohnDeLaSnow/cine-backend.git'
+                git 'git@github.com:YiannisChionas/cinemonkey.git'
             }
         }
 
