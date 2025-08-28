@@ -1,0 +1,31 @@
+# --- Build stage: compile jar με JDK 17 ---
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /build
+
+# cache deps
+COPY pom.xml .
+RUN mvn -B -q -DskipTests dependency:go-offline
+
+# source
+COPY . .
+
+# package χωρίς tests (τα τρέχεις στο pipeline)
+RUN mvn -B -DskipTests package \
+ && bash -lc 'cp "$(ls -1 target/*-SNAPSHOT.jar | head -n1)" /build/app.jar'
+
+# --- Runtime stage: μικρό JRE image ---
+FROM eclipse-temurin:17-jre-jammy
+WORKDIR /app
+
+# JAR
+COPY --from=build /build/app.jar /app/app.jar
+
+# Αν χρησιμοποιείς entrypoint για custom certs, κράτα αυτό:
+# COPY docker-entrypoint.sh /docker-entrypoint.sh
+# RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
+# ENTRYPOINT ["/bin/bash", "/docker-entrypoint.sh"]
+
+# Αλλιώς, εκκίνηση απευθείας:
+ENV JAVA_OPTS=""
+EXPOSE 8080
+ENTRYPOINT ["java","-jar","/app/app.jar"]
