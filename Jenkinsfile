@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_TOKEN=credentials('GHRC_TOKEN')
+        DOCKER_TOKEN=credentials('docker-push-secret')
         DOCKER_USER='yiannischionas'
         DOCKER_SERVER='ghcr.io'
         DOCKER_PREFIX='ghcr.io/yiannischionas/cinemonkey'
@@ -16,33 +16,26 @@ pipeline {
             }
         }
 
-        stage('Setup') {
-            steps {
-                // Install Maven
-                sh 'sudo apt-get update && sudo apt-get install -y maven && mvn -B -Dmaven.compiler.source=17 -Dmaven.compiler.target=17'
-            }
-        }
-
-
-
-        stage('Build') {
-            steps {
-                // Build the Spring Boot project using Maven
-                sh 'mvn clean install'
-            }
-        }
-
         stage('Test') {
             steps {
-                // Run tests for the project
-                sh 'mvn test'
+                sh '''
+                    echo "Start testing"
+                    ./mvnw -Dspring.profiles.active=test -Dspring.datasource.url=jdbc:h2:mem:testdb test
+                '''
             }
         }
 
-        stage('Deploy') {
+        stage('Docker build and push') {
             steps {
-                // Run the Spring Boot application
-                sh 'java -jar target/demo-0.0.1-SNAPSHOT.jar'
+                sh '''
+                    HEAD_COMMIT=$(git rev-parse --short HEAD)
+                    TAG=HEAD_COMMIT-$BUILD_ID
+                    docker build --rm -t $DOCKER_PREFIX:latest -f nonroot-multistage.Dockerfile .
+                '''
+                sh '''
+                    echo $DOCKER_TOKEN | docker login $DOCKER_SERVER -u $DOCKER_USER --password-stdin
+                    docker push $DOCKER_PREFIX --all-tags
+                '''
             }
         }
     }
