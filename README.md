@@ -1,4 +1,4 @@
-###Cinemonkey — Infra & Deployment Guide
+## Cinemonkey — Infra & Deployment Guide
 
 Monorepo με όλη την υποδομή για frontend, backend, Keycloak, Postgres, MinIO, MailDev και nginx.
 Υποστηρίζονται 3 τρόποι εκτέλεσης:
