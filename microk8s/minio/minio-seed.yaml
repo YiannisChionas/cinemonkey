@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-seed
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed
+          image: minio/mc:latest
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              set -e
+              echo "Configuring alias..."
+              mc alias set local http://minio:9000 admin admin123
+              echo "Waiting for MinIO to be ready..."
+              until mc admin info local >/dev/null 2>&1; do sleep 3; done
+              mc mb --ignore-existing local/posters
+              mc anonymous set download local/posters || true
+              if [ -d /seed ] && [ "$(ls -A /seed 2>/dev/null)" ]; then
+                mc cp -r /seed/* local/posters/
+              else
+                echo "seed dir empty or not mounted"
+              fi
+          volumeMounts:
+            - name: seed
+              mountPath: /seed
+      volumes:
+        - name: seed
+          hostPath:
+            path: /srv/cinemonkey/seed/posters/
+            type: DirectoryOrCreate
