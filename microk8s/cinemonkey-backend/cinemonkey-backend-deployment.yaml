@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cinemonkey-backend-deployment
+  namespace: default
+  labels:
+    app: cinemonkey-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cinemonkey-backend
+  template:
+    metadata:
+      labels:
+        app: cinemonkey-backend
+    spec:
+      hostAliases:
+        - ip: "10.152.183.222"   # ClusterIP του Service nginx-proxy
+          hostnames:
+            - "cinemonkey.com"
+      containers:
+        - name: cinemonkey-backend
+          image: ghcr.io/yiannischionas/cinemonkey-backend:d9aae039-19
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/cinemonkey
+            - name: SPRING_DATASOURCE_USERNAME
+              value: cinemonkey
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: MonkeyBusiness
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: https://cinemonkey.com/keycloak/realms/cine-monkey
+            # Προαιρετικό: για να μην εξαρτάσαι από discovery
+            # - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+            #   value: https://cinemonkey.com/keycloak/realms/cine-monkey/protocol/openid-connect/certs
+            - name: LOGO_URL
+              value: "http://minio:9000/posters/LOGO_CLEAN.png"
+            - name: APP_SEED
+              value: "true"
+          volumeMounts:
+            - name: self-signed-certs
+              mountPath: /certs
+              readOnly: true
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            failureThreshold: 5
+            periodSeconds: 10
+            initialDelaySeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            failureThreshold: 6
+            periodSeconds: 10
+            initialDelaySeconds: 30
+      volumes:
+        - name: self-signed-certs
+          secret:
+            secretName: self-signed-pem
+      imagePullSecrets:
+        - name: registry-credentials

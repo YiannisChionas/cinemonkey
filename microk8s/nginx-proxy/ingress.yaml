@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-proxy-http
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"   # μη κάνει redirect ο Ingress
+spec:
+  ingressClassName: public
+  rules:
+    - host: cinemonkey.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx-proxy
+                port:
+                  number: 80
