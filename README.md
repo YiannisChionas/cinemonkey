@@ -37,7 +37,7 @@ ConfigMaps, Secrets, and Health Probes for robust operations.
 
 # 📂 Project Structure
 **cinemonkey/** <br>
-├── cinemonkey-frontend/   # Angular frontend<br>
+├── cinemonkey-frontend/   <span style="color:green"># Angular frontend</span><br>
 ├── cinemonkey-backend/    # Spring Boot backend<br>
 ├── Jenkinsfile            # CI/CD pipeline definition<br>
 ├── ansible/               # Playbooks to deploy the application<br>
