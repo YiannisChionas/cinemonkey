@@ -76,7 +76,7 @@ pipeline {
                     IMAGE_TAG="${HEAD_COMMIT}-${BUILD_ID}"
 
                     env IMAGE_TAG="${IMAGE_TAG}" \
-                    envsubst < microk8s/cinemonkey-backend-deployment.yaml.tpl | kubectl apply -f -
+                    envsubst < microk8s/cinemonkey-backend-deployment.yaml | kubectl apply -f -
 
                     kubectl -n default rollout status deploy/cinemonkey-backend-deployment --timeout=180s
                 '''
