@@ -37,6 +37,7 @@ ConfigMaps, Secrets, and Health Probes for robust operations.
 
 # 📐👷🏻‍♀️ System architecture
 
+<img width="801" height="1061" alt="cinemonkey-diagram" src="https://github.com/user-attachments/assets/e1fd1c78-1129-4657-ab2c-9d0a7853db64" />
 
 
 # 📂 Project Structure
