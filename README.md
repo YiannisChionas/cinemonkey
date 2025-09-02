@@ -36,17 +36,17 @@ Deployments for backend, frontend, Keycloak, PostgreSQL, and MinIO.
 ConfigMaps, Secrets, and Health Probes for robust operations.
 
 # 📂 Project Structure
-**cinemonkey/**
-cinemonkey-frontend/   # Angular frontend
-cinemonkey-backend/    # Spring Boot backend
-Jenkinsfile            # CI/CD pipeline definition
-ansible/               # Playbooks to deploy the application
-seed/                  # Posters to seed to minio using github
-nginx/                 # nginx-proxy configuration files
-keycloak/              # keycloak realm import files
-microk8s/              # microk8s yaml files
-self-signed/           # script to generate appropriate self-signed certificate
-.env.example           # example env variables project expects to exist
+**cinemonkey/** <br>
+cinemonkey-frontend/   # Angular frontend<br>
+cinemonkey-backend/    # Spring Boot backend<br>
+Jenkinsfile            # CI/CD pipeline definition<br>
+ansible/               # Playbooks to deploy the application<br>
+seed/                  # Posters to seed to minio using github<br>
+nginx/                 # nginx-proxy configuration files<br>
+keycloak/              # keycloak realm import files<br>
+microk8s/              # microk8s yaml files<br>
+self-signed/           # script to generate appropriate self-signed certificate<br>
+.env.example           # example env variables project expects to exist<br>
 docker-compose.yml     # Local dev setup
 
 # ⚙️ How to Run Locally
