@@ -21,7 +21,7 @@ spec:
             - "cinemonkey.com"
       containers:
         - name: cinemonkey-backend
-          image: ghcr.io/yiannischionas/cinemonkey-backend:{IMAGE_TAG}
+          image: ghcr.io/yiannischionas/cinemonkey-backend:${IMAGE_TAG}
           ports:
             - containerPort: 8080
               name: http
