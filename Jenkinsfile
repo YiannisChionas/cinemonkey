@@ -68,5 +68,19 @@ pipeline {
                 }
             }
         }
+        stage('Deploy backend') {
+            steps {
+                sh '''
+                    set -eux
+                    HEAD_COMMIT=$(git rev-parse --short=8 HEAD)
+                    TAG="${HEAD_COMMIT}-${BUILD_ID}"
+
+                    kubectl -n default set image deploy/cinemonkey-backend-deployment \
+                    cinemonkey-backend=ghcr.io/yiannischionas/cinemonkey-backend:${TAG}
+
+                    kubectl -n default rollout status deploy/cinemonkey-backend-deployment --timeout=180s
+                '''
+            }
+        }
     }
 }
