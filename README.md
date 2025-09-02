@@ -35,6 +35,10 @@ Deployments for backend, frontend, Keycloak, PostgreSQL, and MinIO.
 
 ConfigMaps, Secrets, and Health Probes for robust operations.
 
+# 📐👷🏻‍♀️ System architecture
+
+
+
 # 📂 Project Structure
 **cinemonkey/** <br>
 ├── cinemonkey-frontend/   # Angular frontend<br>
