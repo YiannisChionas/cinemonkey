@@ -26,6 +26,8 @@ spec:
             - containerPort: 8080
               name: http
           env:
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: create-drop
             - name: SPRING_DATASOURCE_URL
               value: jdbc:postgresql://postgres:5432/cinemonkey
             - name: SPRING_DATASOURCE_USERNAME
