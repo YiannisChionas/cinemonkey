@@ -18,7 +18,7 @@ spec:
         - name: registry-credentials   # βεβαιώσου ότι αυτό είναι το σωστό secret name στο ίδιο namespace
       containers:
         - name: frontend
-          image: ghcr.io/yiannischionas/cinemonkey-frontend:d9aae039-19
+          image: ghcr.io/yiannischionas/cinemonkey-frontend:${IMAGE_TAG}
           imagePullPolicy: Always
           ports:
             - containerPort: 80

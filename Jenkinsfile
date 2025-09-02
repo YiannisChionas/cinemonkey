@@ -81,6 +81,21 @@ pipeline {
                     kubectl -n default rollout status deploy/cinemonkey-backend-deployment --timeout=180s
                 '''
             }
-        }   
+        }
+        stage('Deploy frontend') {
+            steps {
+                sh '''
+                    set -eux
+                    HEAD_COMMIT=$(git rev-parse --short=8 HEAD)
+                    IMAGE_TAG="${HEAD_COMMIT}-${BUILD_ID}"
+
+                    env IMAGE_TAG="${IMAGE_TAG}" \
+                    envsubst < microk8s/cinemonkey-frontend/cinemonkey-frontend-deployment.yaml | kubectl apply -f -
+
+                    kubectl -n default rollout status deploy/cinemonkey-frontend-deployment --timeout=180s
+                '''
+            }
+        }
+           
     }
 }
