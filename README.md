@@ -1,4 +1,4 @@
-## 🎬 CineMonkey
+# 🎬 CineMonkey
 
 CineMonkey is a full-stack web application for managing and booking cinema tickets.
 It leverages modern DevOps practices and a cloud-native architecture with Kubernetes, Jenkins, Docker, and Keycloak for secure authentication.
@@ -49,7 +49,7 @@ self-signed/           # script to generate appropriate self-signed certificate
 .env.example           # example env variables project expects to exist
 docker-compose.yml     # Local dev setup
 
-⚙️ How to Run Locally
+# ⚙️ How to Run Locally
 
 Ensure you have installed git, docker and have set up the connection to GHCR
 
@@ -74,7 +74,7 @@ Backend API → Frontend → http://cinemonkey.com/api (Used by the frontend, ne
 
 Keycloak → Frontend → http://cinemonkey.com/admin
 
-🔒 Authentication
+# 🔒 Authentication
 
 Default realm: cine-monkey
 
@@ -82,7 +82,7 @@ Clients: cm
 
 Users and roles (e.g. ADMIN, EMPLOYEE, EMPLOYER, USER) are managed via the Keycloak admin console.
 
-📸 Screenshots
+# 📸 Screenshots
 
 <img width="2560" height="1322" alt="image" src="https://github.com/user-attachments/assets/11386224-8ff0-4bc8-8059-72cb22fe584e" />
 <img width="2560" height="1319" alt="image" src="https://github.com/user-attachments/assets/61edcdca-1f44-407b-8b83-1376efd86f64" />
@@ -92,6 +92,10 @@ Users and roles (e.g. ADMIN, EMPLOYEE, EMPLOYER, USER) are managed via the Keycl
 <img width="2560" height="1320" alt="image" src="https://github.com/user-attachments/assets/1fd65af2-9d78-4f18-a954-a97212a98e08" />
 <img width="2560" height="1318" alt="image" src="https://github.com/user-attachments/assets/2c8dd86b-be83-4cbc-8163-4394b729252a" />
 
-📜 License
+# 📜 License
 
 MIT License — feel free to fork, use, and adapt.
+
+# ⚠️ Disclaimer
+The domain name cinemonkey.com does not belong to me.
+It is used purely for educational and demonstration purposes in this project.
