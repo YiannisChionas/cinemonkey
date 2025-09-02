@@ -1,4 +1,4 @@
-<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/b58483de-01dd-43db-bd1b-6904b2d82e93" />
+<img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/b58483de-01dd-43db-bd1b-6904b2d82e93" />
 
 # 🎬 CineMonkey
 
