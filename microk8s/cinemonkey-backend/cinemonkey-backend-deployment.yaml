@@ -32,9 +32,9 @@ spec:
               value: "true"
             # αν έχεις schema.sql/data.sql και θες να τρέχουν:
             - name: SPRING_SQL_INIT_MODE
-              value: always
+              value: never
             - name: SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION
-              value: "true"
+              value: "false"
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: create-drop
             - name: SPRING_DATASOURCE_URL
