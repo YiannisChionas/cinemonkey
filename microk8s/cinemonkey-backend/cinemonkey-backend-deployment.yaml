@@ -25,7 +25,16 @@ spec:
           ports:
             - containerPort: 8080
               name: http
-          env:
+          env:        
+            - name: SPRING_JPA_PROPERTIES_HIBERNATE_HBM2DDL_AUTO
+              value: create-drop
+            - name: SPRING_JPA_GENERATE_DDL
+              value: "true"
+            # αν έχεις schema.sql/data.sql και θες να τρέχουν:
+            - name: SPRING_SQL_INIT_MODE
+              value: always
+            - name: SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION
+              value: "true"
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: create-drop
             - name: SPRING_DATASOURCE_URL
