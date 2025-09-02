@@ -51,7 +51,7 @@ docker-compose.yml     # Local dev setup
 
 ⚙️ How to Run Locally
 
-Ensure you have installed git, docker
+Ensure you have installed git, docker and have set up the connection to GHCR
 
 Clone the repo:
 
