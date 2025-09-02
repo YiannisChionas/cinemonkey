@@ -26,17 +26,6 @@ spec:
             - containerPort: 8080
               name: http
           env:        
-            - name: SPRING_JPA_PROPERTIES_HIBERNATE_HBM2DDL_AUTO
-              value: create-drop
-            - name: SPRING_JPA_GENERATE_DDL
-              value: "true"
-            # αν έχεις schema.sql/data.sql και θες να τρέχουν:
-            - name: SPRING_SQL_INIT_MODE
-              value: never
-            - name: SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION
-              value: "false"
-            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
-              value: create-drop
             - name: SPRING_DATASOURCE_URL
               value: jdbc:postgresql://postgres:5432/cinemonkey
             - name: SPRING_DATASOURCE_USERNAME
@@ -45,9 +34,6 @@ spec:
               value: MonkeyBusiness
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
               value: https://cinemonkey.com/keycloak/realms/cine-monkey
-            # Προαιρετικό: για να μην εξαρτάσαι από discovery
-            # - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
-            #   value: https://cinemonkey.com/keycloak/realms/cine-monkey/protocol/openid-connect/certs
             - name: LOGO_URL
               value: "http://minio:9000/posters/LOGO_CLEAN.png"
             - name: APP_SEED
