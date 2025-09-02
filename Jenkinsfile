@@ -92,7 +92,7 @@ pipeline {
                     env IMAGE_TAG="${IMAGE_TAG}" \
                     envsubst < microk8s/cinemonkey-frontend/cinemonkey-frontend-deployment.yaml | kubectl apply -f -
 
-                    kubectl -n default rollout status deploy/cinemonkey-frontend-deployment --timeout=180s
+                    kubectl -n default rollout status deploy/cinemonkey-frontend --timeout=180s
                 '''
             }
         }
