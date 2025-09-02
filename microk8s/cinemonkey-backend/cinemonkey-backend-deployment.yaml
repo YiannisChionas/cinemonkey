@@ -38,6 +38,8 @@ spec:
               value: "http://minio:9000/posters/LOGO_CLEAN.png"
             - name: APP_SEED
               value: "true"
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: update
           volumeMounts:
             - name: self-signed-certs
               mountPath: /certs
