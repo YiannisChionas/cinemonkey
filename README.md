@@ -15,6 +15,8 @@ Media Storage: MinIO for storing posters and assets.
 
 Database: PostgreSQL with schema migrations and persistence.
 
+Mail Delivery: Using Mail-Dev as a development smtp server.
+
 # 🛠️ DevOps & Infrastructure
 
 Dockerized services for reproducible environments.
@@ -31,7 +33,7 @@ Kubernetes Deployment (MicroK8s):
 
 Ingress controller with SSL passthrough for Keycloak.
 
-Deployments for backend, frontend, Keycloak, PostgreSQL, and MinIO.
+Deployments for cinemonkey-backend, cinemonkey-frontend, Keycloak, PostgreSQL, Mail-dev and MinIO.
 
 ConfigMaps, Secrets, and Health Probes for robust operations.
 
@@ -39,6 +41,7 @@ ConfigMaps, Secrets, and Health Probes for robust operations.
 
 <img width="801" height="1061" alt="cinemonkey-diagram" src="https://github.com/user-attachments/assets/e1fd1c78-1129-4657-ab2c-9d0a7853db64" />
 
+Each component has its own kubernetes pod and service.
 
 # 📂 Project Structure
 **cinemonkey/** <br>
@@ -56,7 +59,7 @@ ConfigMaps, Secrets, and Health Probes for robust operations.
 
 # ⚙️ How to Run Locally
 
-Ensure you have installed git, docker and have set up the connection to GHCR
+Ensure you have installed git, docker and set up connection to GHCR.
 
 Clone the repo:
 
@@ -75,9 +78,13 @@ Access the app at:
 
 Frontend → http://cinemonkey.com
 
-Backend API → Frontend → http://cinemonkey.com/api (Used by the frontend, needs jwt with proper issuer)
+Backend API → http://cinemonkey.com/api (Used by the frontend, needs jwt with proper issuer)
 
-Keycloak → Frontend → http://cinemonkey.com/admin
+Keycloak → http://cinemonkey.com/admin
+
+Minio Console → http://cinemonkey.com/minio
+
+Mail-dev → https://cinemonkey.comn/mail-dev
 
 # 🔒 Authentication
 
