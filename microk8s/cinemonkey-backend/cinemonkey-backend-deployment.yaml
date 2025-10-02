@@ -39,7 +39,7 @@ spec:
             - name: APP_SEED
               value: "true"
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
-              value: update
+              value: create-drop
           volumeMounts:
             - name: self-signed-certs
               mountPath: /certs
